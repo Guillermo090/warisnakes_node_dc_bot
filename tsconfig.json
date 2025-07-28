@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",                // Compila a una versión moderna de JavaScript
+    "module": "CommonJS",               // Usa el sistema de módulos de Node.js
+    "rootDir": "./src",                 // Carpeta raíz de los archivos fuente .ts
+    "outDir": "./dist",                 // Carpeta de salida para los archivos .js compilados
+    "esModuleInterop": true,            // Permite la interoperabilidad entre módulos CommonJS y ES
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,                     // Habilita todas las comprobaciones estrictas de tipos
+    "skipLibCheck": true                // Evita la comprobación de tipos en los archivos de declaración (.d.ts)
+  },
+  "include": ["src/**/*"] // Asegura que solo se compilen los archivos dentro de 'src'
+}

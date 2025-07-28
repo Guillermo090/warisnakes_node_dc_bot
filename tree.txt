@@ -1,0 +1,22 @@
+warisnakes_node_dc_bot/
+├── src/
+│   ├── commands/
+│   │   └── utility/
+│   │       └── ping.ts
+│   ├── events/
+│   │   ├── client/
+│   │   │   └── ready.ts
+│   │   └── guild/
+│   │       └── messageCreate.ts
+│   ├── handlers/
+│   │   ├── commandHandler.ts
+│   │   └── eventHandler.ts
+│   ├── structures/
+│   │   ├── BotClient.ts
+│   │   ├── BaseCommand.ts
+│   │   └── BaseEvent.ts
+│   ├── config.ts
+│   └── index.ts
+├── .env
+├── package.json
+└── tsconfig.json
