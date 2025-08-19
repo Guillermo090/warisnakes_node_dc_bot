@@ -29,7 +29,6 @@ export class BotClient extends Client {
         const handler = handlerModule.default;
         handler(this);
       });
-      console.log(file)
     }
   }
 
