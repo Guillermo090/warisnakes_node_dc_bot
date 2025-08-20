@@ -60,7 +60,7 @@ export default class GTCommand extends BaseCommand {
       : `1. <@${message.author.id}>`;
 
     const embed = new EmbedBuilder()
-
+ 
  
     if (!event) {
 
