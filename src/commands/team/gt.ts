@@ -59,23 +59,26 @@ export default class GTCommand extends BaseCommand {
           .join('\n')
       : `1. <@${message.author.id}>`;
 
-    // Crea embed
     const embed = new EmbedBuilder()
-      .setColor('#0099ff')
+
+
+    if (!event) {
+
+      // Crea embed
+      embed.setColor('#0099ff')
       .setTitle(`📅 Gold Token ${time}`)
       .setDescription(
-        `Organizado por ${event?.organizerId    }\n` +
+        `Organizado por ${message.author.displayName    }\n` +
         `Hora: ${time}\n` +
         `Participantes\n${participantes} 👤\n`
-        
       )
       .setFooter({text: `Evento estimado para las ${time} del dia ${dateStr.split('-').reverse().join('-')}`})
       .setImage(client.user?.avatarURL() ?? '');
 
-    if (!event) {
+
       // Crea evento nuevo y envía embed
       const sentMsg = await message.channel.send({ embeds: [embed] });
-      console.log(message.author.id)
+      console.log(` obtenido eventMsg id ${sentMsg.id} `)
       event = {
         date: dateStr,
         time,
@@ -107,23 +110,33 @@ export default class GTCommand extends BaseCommand {
 
     event.users.push(message.author.id);
 
+    // Recalcula la lista de participantes después de agregar el nuevo usuario
+    const participantesActualizados = event.users
+      .map((userId, idx) => `${idx + 1}. <@${userId}>`)
+      .join('\n');
+
     // Actualiza el mensaje del evento
     try {
       const channel = await client.channels.fetch(event.channelId!);
       // @ts-ignore
-      if (channel && channel.isText()) {
+      console.log(` recuperado channel id ${channel.id} `)
+      if (channel && channel.isTextBased()) {
         // @ts-ignore
+        console.log(` pase por que es texto `)
         const eventMsg = await channel.messages.fetch(event.messageId!);
+        console.log(` recuperado eventMsg id ${eventMsg.id} `)
         if (eventMsg) {
           embed.setDescription(
-            `Organizado por ${event?.organizerId}\n` +
+            `Organizado por <@${event?.organizerId}>\n` +
             `Hora: ${time}\n` +
-            `Participantes\n${participantes} 👤\n`
-            
-        );
-          
-          await eventMsg.edit({ embeds: [embed] });
-        }
+            `Participantes\n${participantesActualizados} 👤\n`
+          )
+          .setColor('#0099ff')
+          .setTitle(`📅 Gold Token ${time}`)
+          .setFooter({text: `Evento estimado para las ${time} del dia ${dateStr.split('-').reverse().join('-')}`})
+          .setImage(client.user?.avatarURL() ?? '');
+              await eventMsg.edit({ embeds: [embed] });
+            }
       }
     } catch (err) {
       // Si no se puede editar el mensaje, ignora el error
