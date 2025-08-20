@@ -61,7 +61,7 @@ export default class GTCommand extends BaseCommand {
 
     const embed = new EmbedBuilder()
 
-
+ 
     if (!event) {
 
       // Crea embed
