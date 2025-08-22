@@ -12,9 +12,11 @@ interface CommandConstructor {
 
 export default (client: BotClient): void => {
   const commandsPath = path.join(__dirname, '..', 'commands');
+  const isProd = process.env.NODE_ENV === 'production';
+  const ext = isProd ? '.js' : '.ts';
 
   readdirSync(commandsPath).forEach(dir => {
-    const commandFiles = readdirSync(path.join(commandsPath, dir)).filter(file => file.endsWith('.ts'));
+    const commandFiles = readdirSync(path.join(commandsPath, dir)).filter(file => file.endsWith(ext));
 
     for (const file of commandFiles) {
       const filePath = path.join(commandsPath, dir, file);

@@ -21,7 +21,9 @@ export class BotClient extends Client {
 
   private loadHandlers(): void {
     const handlersPath = path.join(__dirname, '..', 'handlers');
-    const handlerFiles = readdirSync(handlersPath).filter(file => file.endsWith('.ts'));
+    const isProd = process.env.NODE_ENV === 'production';
+    const ext = isProd ? '.js' : '.ts';
+    const handlerFiles = readdirSync(handlersPath).filter(file => file.endsWith(ext));
 
     console.log('[BotClient] Handlers encontrados:', handlerFiles);
 
