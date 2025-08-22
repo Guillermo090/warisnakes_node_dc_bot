@@ -23,11 +23,14 @@ export class BotClient extends Client {
     const handlersPath = path.join(__dirname, '..', 'handlers');
     const handlerFiles = readdirSync(handlersPath).filter(file => file.endsWith('.ts'));
 
+    console.log('[BotClient] Handlers encontrados:', handlerFiles);
+
     for (const file of handlerFiles) {
       const fullPath = path.join(handlersPath, file);
       import(pathToFileURL(fullPath).toString()).then(handlerModule => {
         const handler = handlerModule.default;
         handler(this);
+        console.log(`[BotClient] Handler cargado: ${file}`);
       });
     }
   }
