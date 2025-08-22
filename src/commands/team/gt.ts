@@ -27,8 +27,7 @@ export default class GTCommand extends BaseCommand {
   public async execute(client: BotClient, message: Message, args: string[]): Promise<void> {
     const timeArg = args[0];
     if (!timeArg || !/^(\d{1,2})(:\d{2})?$/.test(timeArg)) {
-      message.reply('Formato inválido. Usa `!gt 19` o `!gt 19:30`');
-      return;
+      return this.sendReply(message, 'Formato inválido. Usa `!gt 19` o `!gt 19:30`');
     }
 
     // Normaliza la hora
@@ -40,72 +39,53 @@ export default class GTCommand extends BaseCommand {
 
     // Fecha de hoy
     const today = new Date();
-    const dateStr = today.toISOString().slice(0, 10);
+    const todayStr = today.toLocaleDateString('es-CL').replace(/\//g, '-');
 
     // Busca evento existente
-    let event = GTCommand.events.find(e => e.date === dateStr && e.time === time);
-
-    // Formatea fecha completa
-    const localeDate = today.toLocaleDateString('es-ES', {
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-    });
-    const fechaCompleta = `${localeDate} ${time}`;
-    const diasRestantes = 0; // Si el evento es hoy
+    let event = GTCommand.events.find(e => e.date === todayStr && e.time === time);
 
     // Helper para formatear participantes
     const participantes = event
       ? event.users
-          .map((userId, idx) => `${idx + 1}. <@${userId}>`)
-          .join('\n')
+        .map((userId, idx) => `${idx + 1}. <@${userId}>`)
+        .join('\n')
       : `1. <@${message.author.id}>`;
 
-    const embed = new EmbedBuilder()
- 
- 
+    // Crea embed base
+    const embed = this.getBaseEmbed(client, todayStr, time);
+    
     if (!event) {
-
-      // Crea embed
-      embed.setColor('#0099ff')
-      .setTitle(`📅 Gold Token ${time}`)
-      .setDescription(
-        `Organizado por ${message.author.displayName    }\n` +
+      embed.setDescription(
+        `Organizado por <@${message.author.id}>\n` +
         `Hora: ${time}\n` +
-        `Participantes\n${participantes} 👤\n`
+        `Participantes\n1. <@${message.author.id}>\n`
       )
-      .setFooter({text: `Evento estimado para las ${time} del dia ${dateStr.split('-').reverse().join('-')}`})
-      .setImage(client.user?.avatarURL() ?? '');
-
 
       // Crea evento nuevo y envía embed
-      const sentMsg = await message.channel.send({ embeds: [embed] });
-      console.log(` obtenido eventMsg id ${sentMsg.id} `)
+      const sentMsg = await message.reply({ embeds: [embed] });
+
       event = {
-        date: dateStr,
+        date: todayStr,
         time,
         users: [message.author.id],
         messageId: sentMsg.id,
         channelId: message.channel.id,
         organizerId: message.author.id,
       };
+
       GTCommand.events.push(event);
-      message.reply(`Evento GT creado para hoy a las ${time}. ¡Te has unido!`).then(msg => {
-            setTimeout(() => msg.delete().catch(() => {}), 3000); 
-        });
-      return;
+
+      return this.sendReply( message,
+        `Evento GT creado para hoy a las ${time}. ¡Te has unido!`
+      , false);
     }
 
     if (event.users.includes(message.author.id)) {
-        message.reply('Ya estás en el evento.').then(msg => {
-            setTimeout(() => msg.delete().catch(() => {}), 3000); 
-        });
-        return;
+      return this.sendReply(message, 'Ya estás en el evento.');
     }
 
     if (event.users.length >= 5) {
-      message.reply('El evento ya tiene 5 personas, no puedes unirte.').then(msg => {
-            setTimeout(() => msg.delete().catch(() => {}), 3000); 
-        });
-      return;
+      return this.sendReply(message, 'El evento ya tiene 5 personas, no puedes unirte.');
     }
 
     event.users.push(message.author.id);
@@ -119,32 +99,52 @@ export default class GTCommand extends BaseCommand {
     try {
       const channel = await client.channels.fetch(event.channelId!);
       // @ts-ignore
-      console.log(` recuperado channel id ${channel.id} `)
       if (channel && channel.isTextBased()) {
         // @ts-ignore
-        console.log(` pase por que es texto `)
         const eventMsg = await channel.messages.fetch(event.messageId!);
-        console.log(` recuperado eventMsg id ${eventMsg.id} `)
         if (eventMsg) {
           embed.setDescription(
             `Organizado por <@${event?.organizerId}>\n` +
             `Hora: ${time}\n` +
-            `Participantes\n${participantesActualizados} 👤\n`
+            `Participantes\n${participantesActualizados}\n`
           )
-          .setColor('#0099ff')
-          .setTitle(`📅 Gold Token ${time}`)
-          .setFooter({text: `Evento estimado para las ${time} del dia ${dateStr.split('-').reverse().join('-')}`})
-          .setImage(client.user?.avatarURL() ?? '');
-              await eventMsg.edit({ embeds: [embed] });
-            }
+          
+          await eventMsg.edit({ embeds: [embed] });
+        }
       }
     } catch (err) {
       // Si no se puede editar el mensaje, ignora el error
     }
 
-    message.reply(`Te has unido al evento GT de hoy a las ${time}. (${event.users.length}/5)`).then(msg => {
-            setTimeout(() => msg.delete().catch(() => {}), 3000); 
-        });;
-    return;
+    if (event.users.length === 5) {
+      // Crea evento nuevo y envía embed
+      await message.reply({ embeds: [embed] });
+    }
+
+    return this.sendReply(message,
+      `Te has unido al evento GT de hoy a las ${time}. (${event.users.length}/5)`
+    );
+
+  }
+
+  private getBaseEmbed(client:any, todayStr: string, time:string ): EmbedBuilder {
+    // const reverseDate = todayStr.split('-').reverse().join('-');
+    return new EmbedBuilder()
+      .setColor('#0099ff')  
+      .setTitle(`📅 Gold Token ${time}`)
+      .setFooter({
+        text: `Evento estimado para las ${time} del dia ${todayStr}`
+      })
+      .setImage(client.user?.avatarURL() ?? '')
+      .setTimestamp();
+  }
+
+  private async sendReply(message: Message, content: string, deleteInitiator : boolean = true): void {
+    await message.reply(content).then( msg => {
+      setTimeout(() => msg.delete().catch(() => {}), 2500); 
+    });
+    if (deleteInitiator) {
+      message.delete().catch(() => {});
+    }
   }
 }
