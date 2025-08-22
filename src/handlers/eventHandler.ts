@@ -20,7 +20,7 @@ export default (client: BotClient): void => {
 
     for (const file of eventFiles) {
         const filePath = path.join(eventsPath, dir, file);
-        const fileUrl = pathToFileURL(filePath).href; // <--- 2. Convertir la ruta a URL
+        const fileUrl = isProd ? filePath : pathToFileURL(filePath).href;
 
         // 3. Usar la URL en el import
         import(fileUrl).then(eventModule => {

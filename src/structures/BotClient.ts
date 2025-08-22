@@ -29,11 +29,19 @@ export class BotClient extends Client {
 
     for (const file of handlerFiles) {
       const fullPath = path.join(handlersPath, file);
-      import(pathToFileURL(fullPath).toString()).then(handlerModule => {
-        const handler = handlerModule.default;
-        handler(this);
-        console.log(`[BotClient] Handler cargado: ${file}`);
-      });
+      if(isProd){
+        import(fullPath).then(handlerModule => {
+          const handler = handlerModule.default;
+          handler(this);
+          console.log(`[BotClient] Handler cargado: ${file}`);
+        });
+      }else{
+        import(pathToFileURL(fullPath).toString()).then(handlerModule => {
+          const handler = handlerModule.default;
+          handler(this);
+          console.log(`[BotClient] Handler cargado: ${file}`);
+        });
+      }
     }
   }
 
