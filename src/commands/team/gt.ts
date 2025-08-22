@@ -139,8 +139,8 @@ export default class GTCommand extends BaseCommand {
       .setTimestamp();
   }
 
-  private async sendReply(message: Message, content: string, deleteInitiator : boolean = true): void {
-    await message.reply(content).then( msg => {
+  private sendReply(message: Message, content: string, deleteInitiator : boolean = true): void {
+    message.reply(content).then( msg => {
       setTimeout(() => msg.delete().catch(() => {}), 2500); 
     });
     if (deleteInitiator) {
