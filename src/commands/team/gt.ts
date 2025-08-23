@@ -7,14 +7,21 @@ interface GTEvent {
   date: string; // YYYY-MM-DD
   time: string; // HH:mm
   users: string[];
-  organizerId?: string; // ID del organizador
-  organizerName?: string; // Nombre del organizador
-  messageId?: string; // ID del mensaje del evento
-  channelId?: string; // ID del canal donde se creó el evento
+  organizerId?: string;
+  organizerName?: string;
+  messageId?: string;
+  channelId?: string;
+  guildId?: string; // <--- Agregado
 }
 
 export default class GTCommand extends BaseCommand {
   static events: GTEvent[] = [];
+
+  // Método para limpiar eventos antiguos
+  static cleanOldEvents() {
+    const todayStr = new Date().toLocaleDateString('es-CL').replace(/\//g, '-');
+    GTCommand.events = GTCommand.events.filter(e => e.date === todayStr);
+  }
 
   constructor() {
     super({
@@ -25,6 +32,8 @@ export default class GTCommand extends BaseCommand {
   }
 
   public async execute(client: BotClient, message: Message, args: string[]): Promise<void> {
+    GTCommand.cleanOldEvents(); // Limpia eventos viejos antes de continuar
+
     const timeArg = args[0];
     if (!timeArg || !/^(\d{1,2})(:\d{2})?$/.test(timeArg)) {
       return this.sendReply(message, 'Formato inválido. Usa `!gt 19` o `!gt 19:30`');
@@ -40,9 +49,10 @@ export default class GTCommand extends BaseCommand {
     // Fecha de hoy
     const today = new Date();
     const todayStr = today.toLocaleDateString('es-CL').replace(/\//g, '-');
+    const guildId = message.guild?.id ?? 'global'; // Usa 'global' si no hay guild
 
-    // Busca evento existente
-    let event = GTCommand.events.find(e => e.date === todayStr && e.time === time);
+    // Busca evento existente SOLO en el mismo servidor
+    let event = GTCommand.events.find(e => e.date === todayStr && e.time === time && e.guildId === guildId);
 
     // Helper para formatear participantes
     const participantes = event
@@ -59,7 +69,7 @@ export default class GTCommand extends BaseCommand {
         `Organizado por <@${message.author.id}>\n` +
         `Hora: ${time}\n` +
         `Participantes\n1. <@${message.author.id}>\n`
-      )
+      );
 
       // Crea evento nuevo y envía embed
       const sentMsg = await message.reply({ embeds: [embed] });
@@ -71,13 +81,12 @@ export default class GTCommand extends BaseCommand {
         messageId: sentMsg.id,
         channelId: message.channel.id,
         organizerId: message.author.id,
+        guildId, // <--- Agregado aquí
       };
 
       GTCommand.events.push(event);
 
-      return this.sendReply( message,
-        `Evento GT creado para hoy a las ${time}. ¡Te has unido!`
-      , false);
+      return this.sendReply(message, `Evento GT creado para hoy a las ${time}. ¡Te has unido!`, false);
     }
 
     if (event.users.includes(message.author.id)) {
@@ -107,7 +116,7 @@ export default class GTCommand extends BaseCommand {
             `Organizado por <@${event?.organizerId}>\n` +
             `Hora: ${time}\n` +
             `Participantes\n${participantesActualizados}\n`
-          )
+          );
           
           await eventMsg.edit({ embeds: [embed] });
         }
