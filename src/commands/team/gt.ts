@@ -153,7 +153,7 @@ export default class GTCommand extends BaseCommand {
       setTimeout(() => msg.delete().catch(() => {}), 2500); 
     });
     if (deleteInitiator) {
-      message.delete().catch(() => {});
+      setTimeout(() => message.delete().catch(() => {}), 5000);
     }
   }
 }
