@@ -35,12 +35,20 @@ export default class GTCommand extends BaseCommand {
     GTCommand.cleanOldEvents(); // Limpia eventos viejos antes de continuar
 
     const timeArg = args[0];
-    if (!timeArg || !/^(\d{1,2})(:\d{2})?$/.test(timeArg)) {
-      return this.sendReply(message, 'Formato inválido. Usa `!gt 19` o `!gt 19:30`');
+    if (!timeArg) {
+      return this.sendReply(message, 
+        'Debes especificar una hora. Usa `!gt 19` para unirte o `!gt -19` para salir.');
+    }
+
+    const isLeaveCommand = timeArg.startsWith('-');
+    const timeString = isLeaveCommand ? timeArg.substring(1) : timeArg;
+
+    if (!/^\d{1,2}(:\d{2})?$/.test(timeString)) {
+      return this.sendReply(message, 'Formato de hora inválido. Usa `19` o `19:30`.');
     }
 
     // Normaliza la hora
-    let [hour, minute] = timeArg.split(':');
+    let [hour, minute] = timeString.split(':');
     if (!minute) minute = '00';
     hour = hour.padStart(2, '0');
     minute = minute.padStart(2, '0');
@@ -49,29 +57,76 @@ export default class GTCommand extends BaseCommand {
     // Fecha de hoy
     const today = new Date();
     const todayStr = today.toLocaleDateString('es-CL').replace(/\//g, '-');
-    const guildId = message.guild?.id ?? 'global'; // Usa 'global' si no hay guild
+    const guildId = message.guild?.id ?? 'global';
 
-    // Busca evento existente SOLO en el mismo servidor
-    let event = GTCommand.events.find(e => e.date === todayStr && e.time === time && e.guildId === guildId);
+    // Busca evento existente
+    const eventIndex = GTCommand.events
+      .findIndex(e => e.date === todayStr && e.time === time && e.guildId === guildId);
+    let event = eventIndex !== -1 ? GTCommand.events[eventIndex] : undefined;
 
-    // Helper para formatear participantes
-    const participantes = event
-      ? event.users
+    // Lógica para SALIR de un evento
+    if (isLeaveCommand) {
+      if (!event) {
+        return this.sendReply(message, 
+          `No se encontró un evento a las ${time} para que puedas salir.`);
+      }
+
+      const userIndex = event.users.indexOf(message.author.id);
+      if (userIndex === -1) {
+        return this.sendReply(message, `No estás en el evento de las ${time}.`);
+      }
+
+      // Elimina al usuario
+      event.users.splice(userIndex, 1);
+
+      // Si el evento queda vacío, elimínalo
+      if (event.users.length === 0) {
+        GTCommand.events.splice(eventIndex, 1);
+        try {
+          const channel = await client.channels.fetch(event.channelId!);
+          // @ts-ignore
+          const eventMsg = await channel.messages.fetch(event.messageId!);
+          await eventMsg.delete();
+        } catch (err) { /* Ignorar si no se puede borrar */ }
+        return this.sendReply(message, 
+          `Has salido del evento de las ${time}. El evento ha sido cancelado.`);
+      }
+
+      // Si el organizador se va, asigna uno nuevo
+      if (event.organizerId === message.author.id) {
+        event.organizerId = event.users[0];
+      }
+
+      // Actualiza el mensaje del evento
+      const participantesActualizados = event.users
         .map((userId, idx) => `${idx + 1}. <@${userId}>`)
         .join('\n')
-      : `1. <@${message.author.id}>`;
+      const embed = this.getBaseEmbed(client, todayStr, time);
+      embed.setDescription(
+        `Organizado por <@${event.organizerId}>\n` +
+        `Hora: ${time}\n` +
+        `Participantes\n${participantesActualizados}\n`
+      );
+      
+      try {
+        const channel = await client.channels.fetch(event.channelId!);
+        // @ts-ignore
+        const eventMsg = await channel.messages.fetch(event.messageId!);
+        await eventMsg.edit({ embeds: [embed] });
+      } catch (err) { /* Ignorar si no se puede editar */ }
 
-    // Crea embed base
-    const embed = this.getBaseEmbed(client, todayStr, time);
-    
+      return this.sendReply(message, `Has salido del evento de las ${time}.`);
+    }
+
+    // Lógica para CREAR o UNIRSE a un evento (código existente)
     if (!event) {
+      const embed = this.getBaseEmbed(client, todayStr, time);
       embed.setDescription(
         `Organizado por <@${message.author.id}>\n` +
         `Hora: ${time}\n` +
         `Participantes\n1. <@${message.author.id}>\n`
       );
 
-      // Crea evento nuevo y envía embed
       const sentMsg = await message.reply({ embeds: [embed] });
 
       event = {
@@ -81,11 +136,10 @@ export default class GTCommand extends BaseCommand {
         messageId: sentMsg.id,
         channelId: message.channel.id,
         organizerId: message.author.id,
-        guildId, // <--- Agregado aquí
+        guildId,
       };
 
       GTCommand.events.push(event);
-
       return this.sendReply(message, `Evento GT creado para hoy a las ${time}. ¡Te has unido!`, false);
     }
 
@@ -99,44 +153,31 @@ export default class GTCommand extends BaseCommand {
 
     event.users.push(message.author.id);
 
-    // Recalcula la lista de participantes después de agregar el nuevo usuario
     const participantesActualizados = event.users
       .map((userId, idx) => `${idx + 1}. <@${userId}>`)
       .join('\n');
+    const embed = this.getBaseEmbed(client, todayStr, time);
+    embed.setDescription(
+      `Organizado por <@${event.organizerId}>\n` +
+      `Hora: ${time}\n` +
+      `Participantes\n${participantesActualizados}\n`
+    );
 
-    // Actualiza el mensaje del evento
     try {
       const channel = await client.channels.fetch(event.channelId!);
       // @ts-ignore
-      if (channel && channel.isTextBased()) {
-        // @ts-ignore
-        const eventMsg = await channel.messages.fetch(event.messageId!);
-        if (eventMsg) {
-          embed.setDescription(
-            `Organizado por <@${event?.organizerId}>\n` +
-            `Hora: ${time}\n` +
-            `Participantes\n${participantesActualizados}\n`
-          );
-          
-          await eventMsg.edit({ embeds: [embed] });
-        }
-      }
-    } catch (err) {
-      // Si no se puede editar el mensaje, ignora el error
-    }
+      const eventMsg = await channel.messages.fetch(event.messageId!);
+      await eventMsg.edit({ embeds: [embed] });
+    } catch (err) { /* Ignorar si no se puede editar */ }
 
     if (event.users.length === 5) {
-      // Crea evento nuevo y envía embed
       await message.reply({ embeds: [embed] });
     }
 
-    return this.sendReply(message,
-      `Te has unido al evento GT de hoy a las ${time}. (${event.users.length}/5)`
-    );
-
+    return this.sendReply(message, `Te has unido al evento GT de hoy a las ${time}. (${event.users.length}/5)`);
   }
 
-  private getBaseEmbed(client:any, todayStr: string, time:string ): EmbedBuilder {
+  private getBaseEmbed(client: any, todayStr: string, time: string): EmbedBuilder {
     // const reverseDate = todayStr.split('-').reverse().join('-');
     return new EmbedBuilder()
       .setColor('#0099ff')  
