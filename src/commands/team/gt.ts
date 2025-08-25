@@ -26,7 +26,8 @@ export default class GTCommand extends BaseCommand {
   constructor() {
     super({
       name: 'gt',
-      description: 'Crea o únete a un evento GT a una hora específica.',
+      description: 'Crea, únete o sal de un evento GT a una hora específica.\n' +
+      '!gt 19 para ingresar o !gt -19 para salir',
       category: 'teamCommands',
     });
   }
