@@ -4,7 +4,6 @@ import type { Message } from 'discord.js';
 import { EmbedBuilder } from 'discord.js';
 import cron from 'node-cron';
 import type { ScheduledTask } from 'node-cron';
-import { ScrapingService } from '../../services/scrapingService'; // 1. Importa el servicio
 import { StaticDataService } from '../../services/staticDataService';
 
 interface DailyNotification {
@@ -62,7 +61,7 @@ export default class DailyCommand extends BaseCommand {
         .setColor('#00bfff')
         .addFields(
           { name: 'Rashid', value: StaticDataService.getRashidDay(), inline: false },
-          { name: 'Drome', value: `${await ScrapingService.getDaysForDrome()} días restantes`, inline: false }
+          { name: 'Drome', value: `${StaticDataService.getDromeTime()} restantes`, inline: false }
         )
         .setImage(client.user?.avatarURL() ?? '')
       // @ts-ignore
