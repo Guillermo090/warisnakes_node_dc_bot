@@ -21,7 +21,11 @@ export class ScrapingService {
     const xpath = '/html/body/div[4]/div[4]/div[2]/main/div[3]/div/div/center/table/tbody/tr[3]/td/b';
 
     try {
-      const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
+      const browser = await puppeteer.launch({
+        headless: true,
+        executablePath: '/usr/bin/chromium-browser',  
+        args: ['--no-sandbox']
+      });
       const page = await browser.newPage();
       await page.goto(url, { waitUntil: 'networkidle2' });
 
