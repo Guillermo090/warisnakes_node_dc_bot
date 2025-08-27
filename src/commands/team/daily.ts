@@ -3,13 +3,14 @@ import type { BotClient } from '../../structures/BotClient';
 import type { Message } from 'discord.js';
 import { EmbedBuilder } from 'discord.js';
 import cron from 'node-cron';
+import type { ScheduledTask } from 'node-cron';
 import { ScrapingService } from '../../services/scrapingService'; // 1. Importa el servicio
 import { StaticDataService } from '../../services/staticDataService';
 
 interface DailyNotification {
   channelId: string;
   time: string; // HH:mm
-  cronJob?: cron.ScheduledTask;
+  cronJob?: ScheduledTask;
 }
 
 const dailyNotifications: DailyNotification[] = [];

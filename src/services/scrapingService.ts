@@ -27,10 +27,12 @@ export class ScrapingService {
 
       // Se usa `waitForSelector` con el prefijo 'xpath/' para esperar el elemento.
       const element = await page.waitForSelector(`xpath/${xpath}`);
-      let text = 'No encontrado';
+      let text: string;
       if (element) {
         // Se obtiene el texto del elemento.
-        text = await page.evaluate(el => el.textContent, element);
+        text = await page.evaluate(el => el?.textContent ?? 'No encontrado', element);
+      } else {
+        text = 'No encontrado';
       }
 
       await browser.close();
