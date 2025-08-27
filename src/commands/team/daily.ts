@@ -61,9 +61,9 @@ export default class DailyCommand extends BaseCommand {
         .setColor('#00bfff')
         .addFields(
           { name: 'Rashid', value: StaticDataService.getRashidDay(), inline: false },
-          { name: 'Drome', value: await ScrapingService.getDromeTime(), inline: false }
+          { name: 'Drome', value: `${await ScrapingService.getDaysForDrome()} días restantes`, inline: false }
         )
-        .setTimestamp();
+        .setImage(client.user?.avatarURL() ?? '')
       // @ts-ignore
       await channel.send({ embeds: [embed] });
     });

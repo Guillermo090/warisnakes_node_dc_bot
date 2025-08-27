@@ -2,6 +2,19 @@ import puppeteer from 'puppeteer';
 
 export class ScrapingService {
 
+  static async getDaysForDrome(): Promise<string> {
+    const dromeTime = await this.getDromeTime();
+
+    // Aquí puedes procesar dromeTime para obtener los días
+    if (dromeTime === "No encontrado"){
+      return dromeTime
+    }
+
+    const daysSegmento = dromeTime.split(' ')[0]; 
+
+    return daysSegmento;
+  }
+
   static async getDromeTime(): Promise<string> {
 
     const url = 'https://tibia.fandom.com/wiki/Tibiadrome/Rotation';
