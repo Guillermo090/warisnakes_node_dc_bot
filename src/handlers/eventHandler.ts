@@ -12,13 +12,15 @@ interface EventConstructor {
 
 export default (client: BotClient): void => {
   const eventsPath = path.join(__dirname, '..', 'events');
+  const isProd = process.env.NODE_ENV === 'production';
+  const ext = isProd ? '.js' : '.ts';
 
   readdirSync(eventsPath).forEach(dir => {
-    const eventFiles = readdirSync(path.join(eventsPath, dir)).filter(file => file.endsWith('.ts'));
+    const eventFiles = readdirSync(path.join(eventsPath, dir)).filter(file => file.endsWith(ext));
 
     for (const file of eventFiles) {
         const filePath = path.join(eventsPath, dir, file);
-        const fileUrl = pathToFileURL(filePath).href; // <--- 2. Convertir la ruta a URL
+        const fileUrl = isProd ? filePath : pathToFileURL(filePath).href;
 
         // 3. Usar la URL en el import
         import(fileUrl).then(eventModule => {

@@ -7,7 +7,8 @@
     "esModuleInterop": true,            // Permite la interoperabilidad entre módulos CommonJS y ES
     "forceConsistentCasingInFileNames": true,
     "strict": true,                     // Habilita todas las comprobaciones estrictas de tipos
-    "skipLibCheck": true                // Evita la comprobación de tipos en los archivos de declaración (.d.ts)
+    "skipLibCheck": true,                // Evita la comprobación de tipos en los archivos de declaración (.d.ts)
+    "types": ["jest", "node"]
   },
   "include": ["src/**/*"] // Asegura que solo se compilen los archivos dentro de 'src'
 }
