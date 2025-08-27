@@ -22,16 +22,12 @@ export class ScrapingService {
       browser = await puppeteer.launch({
         headless: true,
         executablePath: '/usr/bin/chromium-browser',
-        // Argumentos para optimizar en entornos con pocos recursos y evitar errores de sandbox
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage', // Crítico para entornos con poca memoria
-          '--disable-accelerated-2d-canvas',
-          '--no-first-run',
-          '--no-zygote',
-          '--single-process', // Puede ayudar en entornos con poca memoria
-          '--disable-gpu'
+          '--disable-dev-shm-usage',
+          '--disable-gpu',
+          '--single-process'
         ]
       });
       const page = await browser.newPage();
