@@ -4,6 +4,7 @@ import type { Message, TextChannel } from 'discord.js';
 import { EmbedBuilder } from 'discord.js';
 
 interface CustomEvent {
+  id: string;
   date: string; // DD-MM-YYYY
   time: string; // HH:mm
   name: string;
@@ -16,13 +17,13 @@ interface CustomEvent {
 }
 
 export default class EventCommand extends BaseCommand {
-  // Almacenamos los eventos en memoria. Se reiniciarán si el bot se reinicia.
   static events: CustomEvent[] = [];
+  static nextId = 454875; // Contador para IDs de eventos
 
   constructor() {
     super({
       name: 'evento',
-      description: 'Crea o únete a un evento. Uso:\n`!evento [hora] [nombre]` (para hoy)\n`!evento [fecha] [hora] [nombre]` (DD-MM-YYYY)',
+      description: 'Crea o únete a un evento.\nCrear: `!evento [hora] [nombre]`\nUnirse: `!evento [ID]`',
       category: 'teamCommands',
       aliases: ['event'],
     });
@@ -34,77 +35,74 @@ export default class EventCommand extends BaseCommand {
       return;
     }
 
-    const { date, time, name } = this.parseArguments(args);
+    // Lógica para UNIRSE a un evento por ID
+    if (args.length === 1 && /^\d+$/.test(args[0])) {
+      const eventId = args[0];
+      const event = EventCommand.events.find(e => e.id === eventId && e.guildId === message.guild!.id);
+
+      if (!event) {
+        await this.sendTemporaryReply(message, `No se encontró ningún evento con el ID \`${eventId}\`.`);
+        return;
+      }
+
+      if (event.users.includes(message.author.id)) {
+        await this.sendTemporaryReply(message, 'Ya estás en este evento.');
+        return;
+      }
+
+      event.users.push(message.author.id);
+
+      const updatedEmbed = this.createEventEmbed(client, event);
+      try {
+        const channel = await client.channels.fetch(event.channelId) as TextChannel;
+        const eventMsg = await channel.messages.fetch(event.messageId!);
+        await eventMsg.edit({ embeds: [updatedEmbed] });
+      } catch (err) {
+        console.error('Error al editar el mensaje del evento:', err);
+      }
+
+      await this.sendTemporaryReply(message, `Te has unido al evento "${event.name}".`);
+      return;
+    }
+
+    // Lógica para CREAR un evento
+    const { date, time, name } = this.parseCreationArguments(args);
 
     if (!time || !name) {
-      await this.sendTemporaryReply(message, 'Formato incorrecto. Uso:\n`!evento [hora] [nombre]`\n`!evento [DD-MM-YYYY] [hora] [nombre]`');
+      await this.sendTemporaryReply(message, 'Formato incorrecto para crear. Uso:\n`!evento [hora] [nombre]`\n`!evento [DD-MM-YYYY] [hora] [nombre]`');
       return;
     }
-
-    // Busca un evento existente
-    const eventIndex = EventCommand.events.findIndex(e =>
-      e.guildId === message.guild!.id &&
-      e.date === date &&
-      e.time === time &&
-      e.name.toLowerCase() === name.toLowerCase()
-    );
-
-    let event = eventIndex !== -1 ? EventCommand.events[eventIndex] : undefined;
-
-    // Si el evento no existe, lo crea
-    if (!event) {
-      const embed = this.createEventEmbed(client, {
-        date,
-        time,
-        name,
-        organizerId: message.author.id,
-        users: [message.author.id] // El creador se une automáticamente
-      });
-      const eventMessage = await message.channel.send({ embeds: [embed] });
-
-      const newEvent: CustomEvent = {
-        date,
-        time,
-        name,
-        users: [message.author.id],
-        organizerId: message.author.id,
-        messageId: eventMessage.id,
-        channelId: message.channel.id,
-        guildId: message.guild.id,
-      };
-
-      this.scheduleReminder(client, newEvent);
-      EventCommand.events.push(newEvent);
-      await this.sendTemporaryReply(message, `✅ Evento "${name}" creado para el ${date} a las ${time}. ¡Te has unido!`, false);
-      return;
+    
+    // Un evento se define por fecha y hora, no puede haber dos a la vez.
+    const existingEvent = EventCommand.events.find(e => e.guildId === message.guild!.id && e.date === date && e.time === time);
+    if (existingEvent) {
+        await this.sendTemporaryReply(message, `Ya existe un evento (ID: ${existingEvent.id}) a las ${time} del ${date}.`);
+        return;
     }
 
-    // Si el evento ya existe, el usuario se une
-    if (event.users.includes(message.author.id)) {
-      await this.sendTemporaryReply(message, 'Ya estás en este evento.');
-      return;
-    }
+    const newEvent: CustomEvent = {
+      id: (EventCommand.nextId++).toString(),
+      date,
+      time,
+      name,
+      users: [message.author.id],
+      organizerId: message.author.id,
+      channelId: message.channel.id,
+      guildId: message.guild.id,
+    };
 
-    event.users.push(message.author.id);
+    const embed = this.createEventEmbed(client, newEvent);
+    const eventMessage = await message.channel.send({ embeds: [embed] });
+    newEvent.messageId = eventMessage.id; // Guardamos el ID del mensaje después de enviarlo
 
-    // Actualiza el embed con la nueva lista de participantes
-    const updatedEmbed = this.createEventEmbed(client, event);
-    try {
-      const channel = await client.channels.fetch(event.channelId!) as TextChannel;
-      const eventMsg = await channel.messages.fetch(event.messageId!);
-      await eventMsg.edit({ embeds: [updatedEmbed] });
-    } catch (err) {
-      console.error('Error al editar el mensaje del evento:', err);
-    }
-
-    await this.sendTemporaryReply(message, `Te has unido al evento "${name}" del ${date} a las ${time}.`);
+    this.scheduleReminder(client, newEvent);
+    EventCommand.events.push(newEvent);
+    await this.sendTemporaryReply(message, `✅ Evento "${name}" creado con ID \`${newEvent.id}\`.`, false);
   }
 
-  private parseArguments(args: string[]): { date: string, time: string | null, name: string | null } {
+  private parseCreationArguments(args: string[]): { date: string, time: string | null, name: string | null } {
     const today = new Date().toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
     
-    if (args.length < 2) return { date: today, time: null, name: null };
-
     const dateRegex = /^\d{2}-\d{2}-\d{4}$/;
     const timeRegex = /^\d{1,2}(:\d{2})?$/;
 
@@ -113,12 +111,10 @@ export default class EventCommand extends BaseCommand {
     let name: string | null = null;
 
     if (dateRegex.test(args[0]) && timeRegex.test(args[1])) {
-      // Formato: !evento [fecha] [hora] [nombre]
       date = args[0];
       time = this.normalizeTime(args[1]);
       name = args.slice(2).join(' ');
     } else if (timeRegex.test(args[0])) {
-      // Formato: !evento [hora] [nombre]
       time = this.normalizeTime(args[0]);
       name = args.slice(1).join(' ');
     }
@@ -136,7 +132,6 @@ export default class EventCommand extends BaseCommand {
     const [day, month, year] = event.date.split('-').map(Number);
     const [hour, minute] = event.time.split(':').map(Number);
     
-    // OJO: El mes en el constructor de Date es 0-indexado (0=Enero, 11=Diciembre)
     const eventDate = new Date(year, month - 1, day, hour, minute);
     const reminderTime = eventDate.getTime() - (60 * 60 * 1000); // 1 hora antes
     const now = Date.now();
@@ -150,7 +145,7 @@ export default class EventCommand extends BaseCommand {
             const reminderEmbed = new EmbedBuilder()
               .setColor('#FFA500')
               .setTitle(`🔔 Recordatorio: ¡El evento comienza en 1 hora!`)
-              .setDescription(`**Evento:** ${event.name}\n**Hora:** ${event.time}`)
+              .setDescription(`**Evento:** ${event.name} (ID: ${event.id})\n**Hora:** ${event.time}`)
               .setTimestamp();
             await channel.send({ content: `@here ¡Atención!`, embeds: [reminderEmbed] });
           }
@@ -171,20 +166,21 @@ export default class EventCommand extends BaseCommand {
       .setTitle(`🎉 Evento: ${event.name}`)
       .setDescription(`Organizado por <@${event.organizerId}>`)
       .addFields(
+        { name: '🆔 ID del Evento', value: `**${event.id}**`, inline: true },
         { name: '🗓️ Fecha', value: event.date, inline: true },
         { name: '⏰ Hora', value: event.time, inline: true },
         { name: `👥 Participantes (${event.users.length})`, value: participantsList }
       )
       .setImage(client.user?.avatarURL() ?? '')
-      .setFooter({ text: `Usa !evento ${event.date !== new Date().toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-') ? event.date + ' ' : ''}${event.time} ${event.name} para unirte.` })
+      .setFooter({ text: `Usa !evento ${event.id} para unirte.` })
       .setTimestamp();
   }
 
   private async sendTemporaryReply(message: Message, content: string, deleteInitiator: boolean = true): Promise<void> {
     const reply = await message.reply(content);
-    setTimeout(() => reply.delete().catch(() => {}), 5000);
+    setTimeout(() => reply.delete().catch(() => {}), 6000);
     if (deleteInitiator) {
-      setTimeout(() => message.delete().catch(() => {}), 5000);
+      setTimeout(() => message.delete().catch(() => {}), 6000);
     }
   }
 }
