@@ -1,6 +1,6 @@
 import { BaseCommand } from '../../structures/BaseCommand';
 import type { BotClient } from '../../structures/BotClient';
-import type { Message, TextChannel } from 'discord.js';
+import type { Message } from 'discord.js';
 import { EmbedBuilder } from 'discord.js';
 
 interface CustomEvent {
@@ -30,8 +30,7 @@ export default class EventCommand extends BaseCommand {
   }
 
   public async execute(client: BotClient, message: Message, args: string[]): Promise<void> {
-    if (!message.guild) {
-      await message.reply('Este comando solo puede usarse en un servidor.');
+    if (!message.guild || !message.channel) {
       return;
     }
 
@@ -54,9 +53,11 @@ export default class EventCommand extends BaseCommand {
 
       const updatedEmbed = this.createEventEmbed(client, event);
       try {
-        const channel = await client.channels.fetch(event.channelId) as TextChannel;
-        const eventMsg = await channel.messages.fetch(event.messageId!);
-        await eventMsg.edit({ embeds: [updatedEmbed] });
+        const channel = await client.channels.fetch(event.channelId);
+        if (channel?.isTextBased() && event.messageId) {
+          const eventMsg = await channel.messages.fetch(event.messageId);
+          await eventMsg.edit({ embeds: [updatedEmbed] });
+        }
       } catch (err) {
         console.error('Error al editar el mensaje del evento:', err);
       }
@@ -91,9 +92,21 @@ export default class EventCommand extends BaseCommand {
       guildId: message.guild.id,
     };
 
+    // Guarda de tipo para asegurar que el canal puede enviar mensajes
+    if (!message.channel.isTextBased()) {
+        await this.sendTemporaryReply(message, 'No puedo crear un evento en este tipo de canal.');
+        return;
+    }
+
     const embed = this.createEventEmbed(client, newEvent);
-    const eventMessage = await message.channel.send({ embeds: [embed] });
-    newEvent.messageId = eventMessage.id; // Guardamos el ID del mensaje después de enviarlo
+    let eventMessage;
+    if (message.channel.isTextBased() && 'send' in message.channel) {
+      eventMessage = await message.channel.send({ embeds: [embed] });
+      newEvent.messageId = eventMessage.id; // Guardamos el ID del mensaje después de enviarlo
+    } else {
+      await this.sendTemporaryReply(message, 'No puedo crear un evento en este tipo de canal.');
+      return;
+    }
 
     this.scheduleReminder(client, newEvent);
     EventCommand.events.push(newEvent);
@@ -140,8 +153,9 @@ export default class EventCommand extends BaseCommand {
       const delay = reminderTime - now;
       event.reminderTimeout = setTimeout(async () => {
         try {
-          const channel = await client.channels.fetch(event.channelId) as TextChannel;
-          if (channel) {
+          const channel = await client.channels.fetch(event.channelId);
+          // Esta es la guarda de tipo correcta y suficiente.
+          if (channel && channel.isTextBased() && 'send' in channel) {
             const reminderEmbed = new EmbedBuilder()
               .setColor('#FFA500')
               .setTitle(`🔔 Recordatorio: ¡El evento comienza en 1 hora!`)
