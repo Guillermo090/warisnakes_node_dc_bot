@@ -19,23 +19,108 @@ interface CustomEvent {
 export default class EventCommand extends BaseCommand {
   static events: CustomEvent[] = [];
   static nextId = 454875; // Contador para IDs de eventos
+  private static timeZone = 'America/Santiago';
+
+  // Método para limpiar eventos que ya han pasado, basado en la hora de Chile.
+  static cleanUpPastEvents() {
+    const now = new Date();
+    const nowInChile = {
+      year: parseInt(now.toLocaleString('en-US', { timeZone: EventCommand.timeZone, year: 'numeric' })),
+      month: parseInt(now.toLocaleString('en-US', { timeZone: EventCommand.timeZone, month: 'numeric' })) - 1, // JS month is 0-indexed
+      day: parseInt(now.toLocaleString('en-US', { timeZone: EventCommand.timeZone, day: '2-digit' })),
+      hour: parseInt(now.toLocaleString('en-US', { timeZone: EventCommand.timeZone, hour: '2-digit', hour12: false })),
+      minute: parseInt(now.toLocaleString('en-US', { timeZone: EventCommand.timeZone, minute: '2-digit' })),
+    };
+    const nowTimestamp = new Date(nowInChile.year, nowInChile.month, nowInChile.day, nowInChile.hour, nowInChile.minute).getTime();
+
+    console.log('Eventos actuales antes de la limpieza:');
+    EventCommand.events.map(event => {
+      console.log(`Evento ID: ${event.id}, Fecha: ${event.date}, Hora: ${event.time}`);
+    });
+
+    EventCommand.events = EventCommand.events.filter(event => {
+      const [day, month, year] = event.date.split('-').map(Number);
+      const [hour, minute] = event.time.split(':').map(Number);
+      const eventTimestamp = new Date(year, month - 1, day, hour, minute).getTime();
+      
+      if (eventTimestamp < nowTimestamp) {
+        if (event.reminderTimeout) clearTimeout(event.reminderTimeout);
+        console.log(`Limpiando evento pasado: ${event.name} (ID: ${event.id})`);
+        return false;
+      }
+      return true;
+    });
+  }
 
   constructor() {
     super({
       name: 'evento',
-      description: 'Crea o únete a un evento.\nCrear: `!evento [hora] [nombre]`\nUnirse: `!evento [ID]`',
+      description: 'Crea, únete o sal de un evento.\nCrear: `!evento [hora] [nombre]`\nUnirse: `!evento [ID]`\nSalir: `!evento -[ID]`',
       category: 'teamCommands',
       aliases: ['event'],
     });
   }
 
   public async execute(client: BotClient, message: Message, args: string[]): Promise<void> {
+    EventCommand.cleanUpPastEvents();
+
     if (!message.guild || !message.channel) {
       return;
     }
 
+    // Lógica para SALIR de un evento por ID
+    if (args.length === 1 && /^-\d+$/.test(args[0])) {
+      const eventId = args[0].substring(1);
+      const eventIndex = EventCommand.events.findIndex(e => e.id === eventId && e.guildId === message.guild!.id);
+
+      if (eventIndex === -1) {
+        await this.sendTemporaryReply(message, `No se encontró ningún evento con el ID \`${eventId}\`.`);
+        return;
+      }
+
+      const event = EventCommand.events[eventIndex];
+      const userIndex = event.users.indexOf(message.author.id);
+
+      if (userIndex === -1) {
+        await this.sendTemporaryReply(message, `No estás en el evento "${event.name}".`);
+        return;
+      }
+
+      event.users.splice(userIndex, 1);
+
+      if (event.users.length === 0) {
+        EventCommand.events.splice(eventIndex, 1);
+        if (event.reminderTimeout) clearTimeout(event.reminderTimeout);
+        try {
+          const channel = await client.channels.fetch(event.channelId);
+          if (channel?.isTextBased() && event.messageId) {
+            const eventMsg = await channel.messages.fetch(event.messageId);
+            await eventMsg.delete();
+          }
+        } catch (err) { console.error(`Error al borrar msg del evento ${event.id}:`, err); }
+        await this.sendTemporaryReply(message, `Has salido del evento "${event.name}". El evento ha sido cancelado.`);
+        return;
+      }
+
+      if (event.organizerId === message.author.id) {
+        event.organizerId = event.users[0];
+      }
+
+      const updatedEmbed = this.createEventEmbed(client, event);
+      try {
+        const channel = await client.channels.fetch(event.channelId);
+        if (channel?.isTextBased() && event.messageId) {
+          const eventMsg = await channel.messages.fetch(event.messageId);
+          await eventMsg.edit({ embeds: [updatedEmbed] });
+        }
+      } catch (err) { console.error('Error al editar el mensaje del evento:', err); }
+
+      await this.sendTemporaryReply(message, `Has salido del evento "${event.name}".`);
+      return;
+    }
+
     // Lógica para UNIRSE a un evento por ID
-    if (args.length === 1 && /^\d+$/.test(args[0])) {
+    if (args.length === 1 && /^\d{4,}$/.test(args[0])) {
       const eventId = args[0];
       const event = EventCommand.events.find(e => e.id === eventId && e.guildId === message.guild!.id);
 
@@ -58,9 +143,7 @@ export default class EventCommand extends BaseCommand {
           const eventMsg = await channel.messages.fetch(event.messageId);
           await eventMsg.edit({ embeds: [updatedEmbed] });
         }
-      } catch (err) {
-        console.error('Error al editar el mensaje del evento:', err);
-      }
+      } catch (err) { console.error('Error al editar el mensaje del evento:', err); }
 
       await this.sendTemporaryReply(message, `Te has unido al evento "${event.name}".`);
       return;
@@ -70,11 +153,10 @@ export default class EventCommand extends BaseCommand {
     const { date, time, name } = this.parseCreationArguments(args);
 
     if (!time || !name) {
-      await this.sendTemporaryReply(message, 'Formato incorrecto para crear. Uso:\n`!evento [hora] [nombre]`\n`!evento [DD-MM-YYYY] [hora] [nombre]`');
+      await this.sendTemporaryReply(message, 'Formato incorrecto. Crear: `!evento [hora] [nombre]` o `!evento [DD-MM-YYYY] [hora] [nombre]`. Unirse: `!evento [ID]`');
       return;
     }
     
-    // Un evento se define por fecha y hora, no puede haber dos a la vez.
     const existingEvent = EventCommand.events.find(e => e.guildId === message.guild!.id && e.date === date && e.time === time);
     if (existingEvent) {
         await this.sendTemporaryReply(message, `Ya existe un evento (ID: ${existingEvent.id}) a las ${time} del ${date}.`);
@@ -92,20 +174,15 @@ export default class EventCommand extends BaseCommand {
       guildId: message.guild.id,
     };
 
-    // Guarda de tipo para asegurar que el canal puede enviar mensajes
     if (!message.channel.isTextBased()) {
         await this.sendTemporaryReply(message, 'No puedo crear un evento en este tipo de canal.');
         return;
     }
 
     const embed = this.createEventEmbed(client, newEvent);
-    let eventMessage;
     if (message.channel.isTextBased() && 'send' in message.channel) {
-      eventMessage = await message.channel.send({ embeds: [embed] });
-      newEvent.messageId = eventMessage.id; // Guardamos el ID del mensaje después de enviarlo
-    } else {
-      await this.sendTemporaryReply(message, 'No puedo crear un evento en este tipo de canal.');
-      return;
+      const eventMessage = await message.channel.send({ embeds: [embed] });
+      newEvent.messageId = eventMessage.id;
     }
 
     this.scheduleReminder(client, newEvent);
@@ -114,10 +191,7 @@ export default class EventCommand extends BaseCommand {
   }
 
   private parseCreationArguments(args: string[]): { date: string, time: string | null, name: string | null } {
-    // Usamos UTC para evitar problemas de zona horaria del servidor.
-    const now = new Date();
-    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
-      .toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' }).replace(/\//g, '-');
+    const today = new Date().toLocaleDateString('es-CL', { timeZone: EventCommand.timeZone }).replace(/\//g, '-');
     
     const dateRegex = /^\d{2}-\d{2}-\d{4}$/;
     const timeRegex = /^\d{1,2}(:\d{2})?$/;
@@ -148,17 +222,24 @@ export default class EventCommand extends BaseCommand {
     const [day, month, year] = event.date.split('-').map(Number);
     const [hour, minute] = event.time.split(':').map(Number);
     
-    // Creamos la fecha del evento en UTC.
-    const eventDateUTC = Date.UTC(year, month - 1, day, hour, minute);
-    const reminderTime = eventDateUTC - (60 * 60 * 1000); // 1 hora antes
-    const now = Date.now();
+    const eventDate = new Date(year, month - 1, day, hour, minute);
+    const reminderTime = eventDate.getTime() - (60 * 60 * 1000);
 
-    if (reminderTime > now) {
-      const delay = reminderTime - now;
+    const now = new Date();
+    const nowInChile = {
+      year: parseInt(now.toLocaleString('en-US', { timeZone: EventCommand.timeZone, year: 'numeric' })),
+      month: parseInt(now.toLocaleString('en-US', { timeZone: EventCommand.timeZone, month: 'numeric' })) - 1,
+      day: parseInt(now.toLocaleString('en-US', { timeZone: EventCommand.timeZone, day: '2-digit' })),
+      hour: parseInt(now.toLocaleString('en-US', { timeZone: EventCommand.timeZone, hour: '2-digit', hour12: false })),
+      minute: parseInt(now.toLocaleString('en-US', { timeZone: EventCommand.timeZone, minute: '2-digit' })),
+    };
+    const nowTimestamp = new Date(nowInChile.year, nowInChile.month, nowInChile.day, nowInChile.hour, nowInChile.minute).getTime();
+
+    if (reminderTime > nowTimestamp) {
+      const delay = reminderTime - nowTimestamp;
       event.reminderTimeout = setTimeout(async () => {
         try {
           const channel = await client.channels.fetch(event.channelId);
-          // Esta es la guarda de tipo correcta y suficiente.
           if (channel && channel.isTextBased() && 'send' in channel) {
             const reminderEmbed = new EmbedBuilder()
               .setColor('#FFA500')
