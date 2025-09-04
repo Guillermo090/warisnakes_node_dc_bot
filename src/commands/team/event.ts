@@ -114,7 +114,10 @@ export default class EventCommand extends BaseCommand {
   }
 
   private parseCreationArguments(args: string[]): { date: string, time: string | null, name: string | null } {
-    const today = new Date().toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
+    // Usamos UTC para evitar problemas de zona horaria del servidor.
+    const now = new Date();
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+      .toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' }).replace(/\//g, '-');
     
     const dateRegex = /^\d{2}-\d{2}-\d{4}$/;
     const timeRegex = /^\d{1,2}(:\d{2})?$/;
@@ -145,8 +148,9 @@ export default class EventCommand extends BaseCommand {
     const [day, month, year] = event.date.split('-').map(Number);
     const [hour, minute] = event.time.split(':').map(Number);
     
-    const eventDate = new Date(year, month - 1, day, hour, minute);
-    const reminderTime = eventDate.getTime() - (60 * 60 * 1000); // 1 hora antes
+    // Creamos la fecha del evento en UTC.
+    const eventDateUTC = Date.UTC(year, month - 1, day, hour, minute);
+    const reminderTime = eventDateUTC - (60 * 60 * 1000); // 1 hora antes
     const now = Date.now();
 
     if (reminderTime > now) {
