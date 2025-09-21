@@ -26,10 +26,10 @@ export default class TimerCommand extends BaseCommand {
     const milliseconds = minutes * 60 * 1000;
 
     const confirmationMsg = await message.reply(`✅ Temporizador de **${minutes} minuto(s)** establecido. Te avisaré por DM cuando termine.`);
-    setTimeout(() => {
-        confirmationMsg.delete().catch(() => {});
-        message.delete().catch(() => {});
-    }, 5000);
+    // setTimeout(() => {
+    //     confirmationMsg.delete().catch(() => {});
+    //     // message.delete().catch(() => {});
+    // }, 5000);
 
     setTimeout(() => {
       const embed = new EmbedBuilder()
