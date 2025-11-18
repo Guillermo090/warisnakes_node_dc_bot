@@ -3,6 +3,7 @@ import type { BotClient } from '../../structures/BotClient';
 import type { Message } from 'discord.js';
 import { EmbedBuilder } from 'discord.js';
 import { DatabaseService } from '../../services/databaseService';
+import type { Accident } from '@prisma/client';
 
 export default class AccidentsCommand extends BaseCommand {
   constructor() {
@@ -32,7 +33,7 @@ export default class AccidentsCommand extends BaseCommand {
       .setDescription(`Mostrando los últimos ${recentAccidents.length} de ${accidents.length} accidentes registrados.`)
       .setTimestamp();
 
-    recentAccidents.forEach((accident: { date: string; detail: string }, index: number) => {
+    recentAccidents.forEach((accident: Accident, index: number) => {
       const date = new Date(accident.date);
       const formattedDate = date.toLocaleString('es-ES', {
         day: '2-digit',
