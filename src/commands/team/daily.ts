@@ -16,7 +16,6 @@ const dailyNotifications: DailyNotification[] = [];
 
 function timeToCron(time: string): string {
   const [hour, minute] = time.split(':').map(Number);
-  // Formato: 'minuto hora * * *'
   return `${minute} ${hour} * * *`;
 }
 
@@ -31,7 +30,6 @@ export default class DailyCommand extends BaseCommand {
   }
 
   public async execute(client: BotClient, message: Message, args: string[]): Promise<void> {
-    // Solo administradores
     if (!message.member?.permissions.has('Administrator')) {
       await message.reply('Solo los administradores pueden usar este comando.');
       return;
@@ -43,7 +41,6 @@ export default class DailyCommand extends BaseCommand {
       return;
     }
 
-    // Verifica si ya existe una notificación para este canal y hora
     const exists = dailyNotifications.find(
       n => n.channelId === message.channel.id && n.time === timeArg
     );
@@ -52,18 +49,21 @@ export default class DailyCommand extends BaseCommand {
       return;
     }
 
-    // Crea el cron job
     const cronTime = timeToCron(timeArg);
     const job = cron.schedule(cronTime, async () => {
       const channel = await client.channels.fetch(message.channel.id);
       const embed = new EmbedBuilder()
-        .setTitle('Notificación Diaria')
+        .setTitle('📋 Notificación Diaria')
         .setColor('#00bfff')
         .addFields(
-          { name: 'Rashid', value: StaticDataService.getRashidDay(), inline: false },
-          { name: 'Drome', value: `${StaticDataService.getDromeTime()} restantes`, inline: false }
+          { name: '✅ Días sin Accidentes', value: `**${StaticDataService.getDaysWithoutAccidents()}** días`, inline: false },
+          { name: '💥 Último Accidente', value: StaticDataService.getLastAccidentReason(), inline: false },
+          { name: '👳 Rashid', value: StaticDataService.getRashidDay(), inline: false },
+          { name: '⚔️ Drome', value: `${StaticDataService.getDromeTime()} restantes`, inline: false }
         )
         .setImage(client.user?.avatarURL() ?? '')
+        .setTimestamp();
+      
       // @ts-ignore
       await channel.send({ embeds: [embed] });
     });
