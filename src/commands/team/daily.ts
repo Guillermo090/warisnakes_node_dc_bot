@@ -5,6 +5,7 @@ import { EmbedBuilder } from 'discord.js';
 import cron from 'node-cron';
 import type { ScheduledTask } from 'node-cron';
 import { StaticDataService } from '../../services/staticDataService';
+import { DatabaseService } from '../../services/databaseService';
 
 interface DailyNotification {
   channelId: string;
@@ -52,12 +53,18 @@ export default class DailyCommand extends BaseCommand {
     const cronTime = timeToCron(timeArg);
     const job = cron.schedule(cronTime, async () => {
       const channel = await client.channels.fetch(message.channel.id);
+      
+      // Obtén los datos directamente desde DatabaseService
+      const daysWithoutAccidents = await DatabaseService.getDaysWithoutAccidents();
+      const lastAccident = await DatabaseService.getLastAccident();
+      const lastAccidentReason = lastAccident ? lastAccident.detail : 'Ninguno registrado';
+      
       const embed = new EmbedBuilder()
         .setTitle('📋 Notificación Diaria')
         .setColor('#00bfff')
         .addFields(
-          { name: '✅ Días sin Accidentes', value: `**${StaticDataService.getDaysWithoutAccidents()}** días`, inline: false },
-          { name: '💥 Último Accidente', value: StaticDataService.getLastAccidentReason(), inline: false },
+          { name: '✅ Días sin Accidentes', value: `**${daysWithoutAccidents}** días`, inline: false },
+          { name: '💥 Último Accidente', value: lastAccidentReason, inline: false },
           { name: '👳 Rashid', value: StaticDataService.getRashidDay(), inline: false },
           { name: '⚔️ Drome', value: `${StaticDataService.getDromeTime()} restantes`, inline: false }
         )

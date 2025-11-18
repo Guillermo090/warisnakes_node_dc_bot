@@ -1,5 +1,7 @@
+import { DatabaseService } from './databaseService';
+
 export class StaticDataService {
-  // --- LÓGICA DE RASHID (EXISTENTE) ---
+  // --- LÓGICA DE RASHID ---
   static getRashidDay(): string {
     const rashidCitiesByDay: Record<number, string> = {
       0: 'Carlin',       // Domingo
@@ -14,7 +16,7 @@ export class StaticDataService {
     return rashidCitiesByDay[today];
   }
 
-  // --- LÓGICA DEL DROME (EXISTENTE) ---
+  // --- LÓGICA DEL DROME ---
   private static readonly LAST_DROME_START = new Date(2025, 7, 20, 4, 0, 0);
   private static readonly DROME_INTERVAL_MS = 14 * 24 * 60 * 60 * 1000;
 
@@ -42,36 +44,5 @@ export class StaticDataService {
     const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
 
     return `${days} días, ${hours} horas, ${minutes} minutos`;
-  }
-
-  // --- NUEVA LÓGICA PARA ACCIDENTES ---
-  private static lastAccidentDate: Date = new Date(2025, 0, 1); // Fecha inicial
-  private static lastAccidentReason: string = 'Ninguno registrado';
-
-  /**
-   * Reinicia el contador de accidentes a la fecha y hora actuales.
-   * @param reason - Motivo del accidente
-   */
-  static resetAccidentCounter(reason: string): void {
-    this.lastAccidentDate = new Date();
-    this.lastAccidentReason = reason;
-  }
-
-  /**
-   * Calcula los días transcurridos desde el último accidente.
-   * @returns El número de días sin accidentes.
-   */
-  static getDaysWithoutAccidents(): number {
-    const now = new Date();
-    const diffMs = now.getTime() - this.lastAccidentDate.getTime();
-    return Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  }
-
-  /**
-   * Obtiene el motivo del último accidente registrado.
-   * @returns El motivo del último accidente.
-   */
-  static getLastAccidentReason(): string {
-    return this.lastAccidentReason;
   }
 }

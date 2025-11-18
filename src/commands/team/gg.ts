@@ -2,7 +2,7 @@ import { BaseCommand } from '../../structures/BaseCommand';
 import type { BotClient } from '../../structures/BotClient';
 import type { Message } from 'discord.js';
 import { EmbedBuilder } from 'discord.js';
-import { StaticDataService } from '../../services/staticDataService';
+import { DatabaseService } from '../../services/databaseService';
 
 export default class GGCommand extends BaseCommand {
   constructor() {
@@ -15,10 +15,12 @@ export default class GGCommand extends BaseCommand {
 
   public async execute(client: BotClient, message: Message, args: string[]): Promise<void> {
     const accidentDetail = args.join(' ') || 'No especificado';
-    const daysSinceLastAccident = StaticDataService.getDaysWithoutAccidents();
+    
+    // Obtiene los días antes de registrar el nuevo accidente
+    const daysSinceLastAccident = await DatabaseService.getDaysWithoutAccidents();
 
-    // Reinicia el contador con el motivo
-    StaticDataService.resetAccidentCounter(accidentDetail);
+    // Registra el nuevo accidente en la base de datos
+    await DatabaseService.createAccident(accidentDetail);
 
     const embed = new EmbedBuilder()
       .setColor('#FF0000')
@@ -31,6 +33,5 @@ export default class GGCommand extends BaseCommand {
     if('send' in message.channel){
         await message.channel.send({ embeds: [embed] });
     }
-
   }
 }
