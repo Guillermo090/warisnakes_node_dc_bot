@@ -28,6 +28,9 @@ export default class GGCommand extends BaseCommand {
       .setFooter({ text: '¡Mejor suerte la próxima vez!' })
       .setTimestamp();
 
-    await message.channel.send({ embeds: [embed] });
+    if('send' in message.channel){
+        await message.channel.send({ embeds: [embed] });
+    }
+
   }
 }
