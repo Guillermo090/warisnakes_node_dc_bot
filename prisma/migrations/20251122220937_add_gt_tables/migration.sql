@@ -1,0 +1,21 @@
+-- CreateTable
+CREATE TABLE "GtEvent" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "date" TEXT NOT NULL,
+    "time" TEXT NOT NULL,
+    "guildId" TEXT NOT NULL,
+    "channelId" TEXT NOT NULL,
+    "messageId" TEXT,
+    "organizerId" TEXT NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'CREATED',
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- CreateTable
+CREATE TABLE "GtParticipant" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "userId" TEXT NOT NULL,
+    "eventId" INTEGER NOT NULL,
+    "joinedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "GtParticipant_eventId_fkey" FOREIGN KEY ("eventId") REFERENCES "GtEvent" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);

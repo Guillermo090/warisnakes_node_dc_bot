@@ -16,3 +16,25 @@ model Accident {
   detail    String
   createdAt DateTime @default(now())
 }
+
+// Nuevos modelos para GT
+model GtEvent {
+  id           Int             @id @default(autoincrement())
+  date         String          // Formato YYYY-MM-DD
+  time         String          // Formato HH:mm
+  guildId      String
+  channelId    String
+  messageId    String?         // ID del mensaje de Discord para editarlo
+  organizerId  String          // ID del usuario organizador
+  status       String          @default("CREATED") // CREATED, COMPLETED, CANCELLED
+  createdAt    DateTime        @default(now())
+  participants GtParticipant[]
+}
+
+model GtParticipant {
+  id       Int      @id @default(autoincrement())
+  userId   String
+  eventId  Int
+  joinedAt DateTime @default(now())
+  event    GtEvent  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+}
