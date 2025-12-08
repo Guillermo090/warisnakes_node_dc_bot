@@ -38,3 +38,19 @@ model GtParticipant {
   joinedAt DateTime @default(now())
   event    GtEvent  @relation(fields: [eventId], references: [id], onDelete: Cascade)
 }
+
+model News {
+  id        Int      @id @default(autoincrement())
+  tibiaId   Int      @unique
+  title     String
+  date      DateTime
+  createdAt DateTime @default(now())
+}
+
+model GuildConfig {
+  id             String   @id // Guild ID
+  newsChannelId  String?
+  dailyChannelId String?
+  tibiaWorld     String?  @default("Antica")
+  updatedAt      DateTime @updatedAt
+}
