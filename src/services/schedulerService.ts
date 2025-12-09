@@ -4,6 +4,8 @@ import { PrismaClient } from '@prisma/client';
 import cron from 'node-cron';
 
 const prisma = new PrismaClient();
+import { StaticDataService } from './staticDataService';
+import { DatabaseService } from './databaseService';
 
 interface NewsItem {
   id: number;
@@ -48,11 +50,13 @@ export class SchedulerService {
     // Check houses daily at 08:00 AM
     cron.schedule('0 8 * * *', () => {
       this.checkHouses();
+      this.checkDailyStats();
     });
 
     console.log('[SchedulerService] Ejecutando chequeo inicial...');
-    this.checkNews();
-    this.checkHouses();
+    // this.checkNews();
+    // this.checkDailyStats();
+    // this.checkHouses();
   }
 
   private async checkNews() {
@@ -219,6 +223,54 @@ export class SchedulerService {
 
     } catch (error) {
       console.error('[SchedulerService] Error checking houses:', error);
+    }
+  }
+
+  private async checkDailyStats() {
+    try {
+      console.log('[SchedulerService] Enviando estadísticas diarias...');
+      
+      const configs = await prisma.guildConfig.findMany({
+        where: { dailyChannelId: { not: null } }
+      });
+
+      if (configs.length === 0) return;
+
+      // Obtén los datos directamente desde DatabaseService
+      const daysWithoutAccidents = await DatabaseService.getDaysWithoutAccidents();
+      const lastAccident = await DatabaseService.getLastAccident();
+      const lastAccidentReason = lastAccident ? lastAccident.detail : 'Ninguno registrado';
+
+      const embed = new EmbedBuilder()
+        .setTitle('📋 Notificación Diaria')
+        .setColor('#00bfff')
+        .addFields(
+          { name: '✅ Días sin Accidentes', value: `**${daysWithoutAccidents}** días`, inline: false },
+          { name: '💥 Último Accidente', value: lastAccidentReason, inline: false },
+          { name: '👳 Rashid', value: StaticDataService.getRashidDay(), inline: false },
+          { name: '⚔️ Drome', value: `${StaticDataService.getDromeTime()} restantes`, inline: false }
+        )
+        .setTimestamp();
+
+      // Only add footer/image if we can get client user
+      if (this.client.user) {
+        embed.setImage(this.client.user.avatarURL() ?? '');
+      }
+      
+      for (const config of configs) {
+        if (!config.dailyChannelId) continue;
+        try {
+          const channel = await this.client.channels.fetch(config.dailyChannelId) as TextChannel;
+          if (channel) {
+            await channel.send({ embeds: [embed] });
+          }
+        } catch (err) {
+          console.error(`[SchedulerService] Error enviando daily a guild ${config.id}:`, err);
+        }
+      }
+
+    } catch (error) {
+      console.error('[SchedulerService] Error checking daily stats:', error);
     }
   }
 
