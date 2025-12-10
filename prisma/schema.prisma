@@ -51,6 +51,19 @@ model GuildConfig {
   id             String   @id // Guild ID
   newsChannelId  String?
   dailyChannelId String?
+  trackerChannelId String?
   tibiaWorld     String?  @default("Antica")
   updatedAt      DateTime @updatedAt
+}
+
+model TrackedCharacter {
+  id        Int      @id @default(autoincrement())
+  name      String
+  guildId   String
+  isEnemy   Boolean
+  lastLevel Int?
+  isOnline  Boolean?
+  lastDeath String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

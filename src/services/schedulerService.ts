@@ -53,10 +53,16 @@ export class SchedulerService {
       this.checkDailyStats();
     });
 
+    // Check tracked characters every 15 minutes
+    cron.schedule('*/15 * * * *', () => {
+      this.checkTrackedCharacters();
+    });
+
     console.log('[SchedulerService] Ejecutando chequeo inicial...');
     // this.checkNews();
     // this.checkDailyStats();
     // this.checkHouses();
+    this.checkTrackedCharacters();
   }
 
   private async checkNews() {
@@ -296,4 +302,117 @@ export class SchedulerService {
 
     return minutes;
   }
+
+  private async checkTrackedCharacters() {
+    try {
+      console.log('[SchedulerService] Revisando personajes rastreados...');
+      const trackedChars = await prisma.trackedCharacter.findMany();
+      if (trackedChars.length === 0) return;
+
+      // Deduplicate names to avoid spamming API
+      const uniqueNames = [...new Set(trackedChars.map(c => c.name))];
+
+      for (const name of uniqueNames) {
+         try {
+           const response = await fetch(`https://api.tibiadata.com/v4/character/${encodeURIComponent(name)}`);
+           const data = await response.json() as any;
+
+           if (!data || !data.character || !data.character.character) {
+             console.log(`[SchedulerService] No se encontró data para ${name}`);
+             continue;
+           }
+
+           const charData = data.character.character;
+           const deaths = data.character.deaths || [];
+           
+           // Process all DB entries for this character name
+           const entries = trackedChars.filter(c => c.name === name);
+
+           for (const entry of entries) {
+             const updates: any = {};
+             let notificationType = '';
+             let notificationDetails = '';
+             let shouldNotify = false;
+             // Actually, looking at fresh docs or experience: TibiaData v4 response for character:
+             // { character: { name, ... last_login, ... } }
+             // No "online" bool.
+             // To check online, I'd need to cross reference with World Online list.
+             // Doing that for every world is expensive.
+             // I'll stick to Level and Death for now, and maybe "Last Login" update?
+             // If "last_login" changes, they logged in.
+             // Wait, `last_login` only updates on Logout? Or login? Usually on Logout.
+             // So catching "Online" is hard with just this endpoint.
+             // I'll skip "Online/Offline" notification for now unless I find a way, OR I just implement Level/Death as they are most important. 
+             // I'll add a comment.
+             // WAIT! I recall `getCharacter` sometimes returning it? No.
+             // Let's stick to Level and Death.
+             
+             // 2. Check Level
+             const currentLevel = charData.level;
+             if (entry.lastLevel !== null) {
+               if (currentLevel > entry.lastLevel) {
+                 shouldNotify = true;
+                 notificationType = 'Level Up';
+                 notificationDetails = `🆙 ${entry.name} subió de nivel ${entry.lastLevel} a ${currentLevel}!`;
+               } else if (currentLevel < entry.lastLevel) {
+                 shouldNotify = true;
+                 notificationType = 'Level Down';
+                 notificationDetails = `🔻 ${entry.name} bajó de nivel ${entry.lastLevel} a ${currentLevel}.`;
+               }
+             }
+             updates.lastLevel = currentLevel;
+
+             // 3. Check Deaths
+             if (deaths.length > 0) {
+               const latestDeath = deaths[0]; // { time: "...", level: ..., reason: "..." }
+               // Create a unique time string or ID
+               const deathTime = latestDeath.time; 
+               if (entry.lastDeath !== deathTime) {
+                 // New death!
+                 // Only notify if we had a previous record (to avoid notifying on first add)
+                 if (entry.lastDeath) { 
+                    shouldNotify = true;
+                    notificationType = 'Nueva Muerte';
+                    notificationDetails = `☠️ ${entry.name} murió a nivel ${latestDeath.level} por ${latestDeath.reason}.\n`;
+                 }
+                 updates.lastDeath = deathTime;
+               }
+             }
+
+             // Save updates
+             if (Object.keys(updates).length > 0) {
+               await prisma.trackedCharacter.update({
+                 where: { id: entry.id },
+                 data: updates
+               });
+             }
+
+             // Send Notification
+             if (shouldNotify) {
+                const guildConfig = await prisma.guildConfig.findUnique({ where: { id: entry.guildId } });
+                if (guildConfig && guildConfig.trackerChannelId) {
+                  const channel = await this.client.channels.fetch(guildConfig.trackerChannelId) as TextChannel;
+                  if (channel) {
+                    const embed = new EmbedBuilder()
+                      .setTitle(`${entry.isEnemy ? 'Enemigo: ' : ''}${notificationType}`)
+                      .setDescription(`**${notificationDetails}**`)
+                      .setColor(entry.isEnemy ? 0xFF0000 : 0x00FF00) // Red for enemy, Green for friend
+                      .setTimestamp();
+                    
+                    await channel.send({ embeds: [embed] });
+                  }
+                }
+             }
+           }
+
+         } catch (err) {
+           console.error(`[SchedulerService] Error updating character ${name}:`, err);
+         }
+      }
+    } catch (error) {
+      console.error('[SchedulerService] Error in checkTrackedCharacters:', error);
+    }
+  }
+
+
 }
