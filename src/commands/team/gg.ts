@@ -14,23 +14,15 @@ export default class GGCommand extends BaseCommand {
   }
 
   public async execute(client: BotClient, message: Message, args: string[]): Promise<void> {
-    const accidentDetail = args.join(' ') || 'No especificado';
-    
-    // Obtiene los días antes de registrar el nuevo accidente
-    const daysSinceLastAccident = await DatabaseService.getDaysWithoutAccidents();
-
-    // Registra el nuevo accidente en la base de datos
-    await DatabaseService.createAccident(accidentDetail);
-
+    // Command disabled as per request (automated in SchedulerService)
     const embed = new EmbedBuilder()
-      .setColor('#FF0000')
-      .setTitle('☠️ ¡Contador de días reiniciado! ☠️')
-      .setDescription(`**Récord anterior:** ${daysSinceLastAccident} días sin accidentes.`)
-      .addFields({ name: '🔥 Causa', value: accidentDetail })
-      .setFooter({ text: '¡Mejor suerte la próxima vez!' })
+      .setColor('#FFAA00')
+      .setTitle('⚠️ Comando Desactivado')
+      .setDescription('El registro de muertes ahora es automático cuando el sistema detecta una muerte en un personaje rastreado.')
       .setTimestamp();
 
-    if('send' in message.channel){
+    if (message.channel && 'send' in message.channel) {
+        // @ts-ignore - We know it has send because of the check
         await message.channel.send({ embeds: [embed] });
     }
   }

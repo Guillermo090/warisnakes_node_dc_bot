@@ -375,7 +375,16 @@ export class SchedulerService {
                     notificationType = 'Nueva Muerte';
                     notificationDetails = `☠️ ${entry.name} murió a nivel ${latestDeath.level} por ${latestDeath.reason}.\n`;
                  }
-                 updates.lastDeath = deathTime;
+                  // Automatically register accident if it's a friendly character (not enemy)
+                  if (shouldNotify && notificationType === 'Nueva Muerte' && !entry.isEnemy) {
+                    try {
+                        await DatabaseService.createAccident(notificationDetails);
+                        console.log(`[SchedulerService] Accidente registrado automáticamente para ${entry.name}`);
+                    } catch (dbErr) {
+                        console.error(`[SchedulerService] Error registrando accidente para ${entry.name}:`, dbErr);
+                    }
+                  }
+                  updates.lastDeath = deathTime;
                }
              }
 
