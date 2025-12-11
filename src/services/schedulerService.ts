@@ -6,6 +6,7 @@ import cron from 'node-cron';
 const prisma = new PrismaClient();
 import { StaticDataService } from './staticDataService';
 import { DatabaseService } from './databaseService';
+import { TibiaDataService } from './tibiaDataService'; // <--- Importamos el nuevo servicio
 
 interface NewsItem {
   id: number;
@@ -68,8 +69,8 @@ export class SchedulerService {
   private async checkNews() {
     try {
       console.log('[SchedulerService] Buscando nuevas noticias...');
-      const response = await fetch('https://api.tibiadata.com/v4/news/latest');
-      const data = await response.json() as any;
+      // REFACTORIZADO: Usamos el servicio en lugar de fetch directo
+      const data = await TibiaDataService.getLatestNews();
       
       if (!data || !data.news) return;
 
@@ -140,9 +141,8 @@ export class SchedulerService {
         let auctionEndingHouses: HouseItem[] = [];
 
         for (const town of towns) {
-          const url = `https://api.tibiadata.com/v4/houses/${world}/${encodeURIComponent(town)}`;
-          const response = await fetch(url);
-          const data = await response.json() as any;
+          // REFACTORIZADO: Usamos el servicio en lugar de fetch directo
+          const data = await TibiaDataService.getHouses(world, town);
 
           if (!data || !data.houses || !data.houses.house_list) continue;
 
@@ -314,8 +314,8 @@ export class SchedulerService {
 
       for (const name of uniqueNames) {
          try {
-           const response = await fetch(`https://api.tibiadata.com/v4/character/${encodeURIComponent(name)}`);
-           const data = await response.json() as any;
+           // REFACTORIZADO: Usamos el servicio en lugar de fetch directo
+           const data = await TibiaDataService.getCharacter(name);
 
            if (!data || !data.character || !data.character.character) {
              console.log(`[SchedulerService] No se encontró data para ${name}`);
