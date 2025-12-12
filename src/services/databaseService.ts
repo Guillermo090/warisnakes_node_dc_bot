@@ -60,6 +60,18 @@ export class DatabaseService {
     return Math.floor(diffMs / (1000 * 60 * 60 * 24));
   }
 
+  /**
+   * Obtiene todos los personajes rastreados
+   * @returns Array de personajes rastreados
+   */
+  static async getAllTrackedCharacters() {
+    return await this.prisma.trackedCharacter.findMany({
+      orderBy: {
+        name: 'asc',
+      },
+    });
+  }
+
   // --- MÉTODOS PARA GT ---
 
   /**
