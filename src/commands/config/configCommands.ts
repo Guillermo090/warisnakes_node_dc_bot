@@ -109,3 +109,35 @@ export class SetTibiaWorldCommand extends BaseCommand {
     }
   }
 }
+
+export class SetOnlineListChannelCommand extends BaseCommand {
+  constructor() {
+    super({
+      name: 'set_online_list_channel',
+      description: 'Establece el canal actual para mostrar la lista de personajes online.',
+      category: 'Config',
+      aliases: ['solc', 'set_online_list']
+    });
+  }
+
+  public async execute(client: BotClient, message: Message, args: string[]): Promise<void> {
+    if (!message.guild) return;
+    if (!message.member?.permissions.has(PermissionsBitField.Flags.Administrator)) {
+      message.reply('Necesitas permisos de Administrador para usar este comando.');
+      return;
+    }
+
+    try {
+      await prisma.guildConfig.upsert({
+        where: { id: message.guild.id },
+        update: { onlineListChannelId: message.channel.id },
+        create: { id: message.guild.id, onlineListChannelId: message.channel.id }
+      });
+
+      message.reply(`✅ Canal para lista de conectados establecido en: ${message.channel}`);
+    } catch (error) {
+      console.error(error);
+      message.reply('Hubo un error al guardar la configuración.');
+    }
+  }
+}
