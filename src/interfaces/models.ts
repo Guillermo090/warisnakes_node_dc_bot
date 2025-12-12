@@ -37,9 +37,19 @@ export interface CharacterInfo {
   level: number;
   vocation?: string;
   world?: string;
+  status?: string; // "online" | "offline"
+}
+
+export interface OtherCharacter {
+  name: string;
+  world: string;
+  status: string;
+  deleted: boolean;
+  main: boolean;
 }
 
 export interface CharacterData {
   character: CharacterInfo;
   deaths: CharacterDeath[];
+  other_characters?: OtherCharacter[];
 }

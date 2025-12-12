@@ -26,9 +26,20 @@ export class TibiaDataRepository implements INewsRepository, IHouseRepository, I
     const data = await TibiaDataService.getCharacter(name);
     if (!data || !data.character || !data.character.character) return null;
 
+    const charInfo = data.character.character;
+    const others = data.character.other_characters || [];
+    
+    // Buscar el estado online/offline en la lista de otros personajes
+    // ya que la API v4 lo devuelve allí incluso para el personaje principal
+    const selfEntry = others.find((c: any) => c.name === charInfo.name);
+    if (selfEntry && selfEntry.status) {
+        charInfo.status = selfEntry.status;
+    }
+
     return {
-      character: data.character.character,
-      deaths: data.character.deaths || []
+      character: charInfo,
+      deaths: data.character.deaths || [],
+      other_characters: others
     };
   }
 }

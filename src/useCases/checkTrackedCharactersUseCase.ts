@@ -77,6 +77,33 @@ export class CheckTrackedCharactersUseCase {
                }
              }
 
+             // 3. Check Online Status
+             const isOnline = charData.status?.toLowerCase() === 'online';
+             console.log(`Char ${entry.name} isOnline: ${isOnline}`)
+             if (isOnline !== (entry.isOnline ?? false)) {
+                 updates.isOnline = isOnline;
+                if (isOnline) {
+                  shouldNotify = true;
+                  notificationType = 'Personaje Online';
+                  notificationDetails = `🟢 ${entry.name} se ha conectado.`;
+                } else {
+                  shouldNotify = true;
+                  notificationType = 'Personaje Offline';
+                  notificationDetails = `🔴 ${entry.name} se ha desconectado.`;
+                }
+             }
+
+             // 4. Check Associated Characters Online Status
+             const otherCharacters = data.other_characters || [];
+             const onlineAssociated = otherCharacters.filter(c => c.status === 'online');
+
+             if (onlineAssociated.length > 0) {
+                 const onlineNames = onlineAssociated.map(c => c.name).join(', ');
+                 console.log(`[CheckTrackedCharactersUseCase] ${entry.name} tiene personajes asociados online: ${onlineNames}`);
+                 // Aquí se podría implementar lógica adicional (notificaciones, registro, etc.)
+                 // Por ahora solo detectamos y logueamos.
+             }
+
              // Save updates
              if (Object.keys(updates).length > 0) {
                await prisma.trackedCharacter.update({
