@@ -1,5 +1,5 @@
 
-import { Events, Interaction, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder } from 'discord.js';
+import { Events, Interaction, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { BaseEvent } from '../../structures/BaseEvent';
 import { BotClient } from '../../structures/BotClient';
 import { TibiaLootParser } from '../../utils/tibiaLootParser';
@@ -73,12 +73,13 @@ export default class InteractionCreateEvent extends BaseEvent {
             const payers = [...new Set(splitData.transfers.map(t => t.from))];
             
             payers.forEach(payerName => {
-                instructions += `**${payerName}**:\n`;
-                instructions += '```\n';
-                splitData.transfers.filter(t => t.from === payerName).forEach(t => {
-                    instructions += `transfer ${t.amount} to ${t.to}\n`;
-                });
-                instructions += '```\n';
+                const payerTransfers = splitData.transfers.filter(t => t.from === payerName);
+                if (payerTransfers.length > 0) {
+                    instructions += `**${payerName}**:\n`;
+                    payerTransfers.forEach(t => {
+                        instructions += '```\n' + `transfer ${t.amount} to ${t.to}` + '\n```';
+                    });
+                }
             });
           } else {
             instructions = "No transfers needed (Perfect balance or Empty).";
@@ -101,9 +102,19 @@ export default class InteractionCreateEvent extends BaseEvent {
             `Supplies: ${fmt(result.totalSupplies)}\n` +
             `Balance: ${fmt(result.totalBalance)}`;
 
+          // Re-create the button for reuse
+          const button = new ButtonBuilder()
+            .setCustomId('open_split_loot_modal')
+            .setLabel('⚔️ Split Loot')
+            .setStyle(ButtonStyle.Success);
+      
+          const row = new ActionRowBuilder<ButtonBuilder>()
+            .addComponents(button);
+
           await interaction.reply({
             content: "```yaml\n" + responseCodeBlock + "\n```",
-            embeds: [embed]
+            embeds: [embed],
+            components: [row]
           });
 
         } catch (error) {
