@@ -1,6 +1,6 @@
 import { BotClient } from '../structures/BotClient';
 import { PrismaClient } from '@prisma/client';
-import { TextChannel } from 'discord.js';
+import { TextChannel, EmbedBuilder } from 'discord.js';
 import { INewsRepository } from '../interfaces/repositories';
 import { translate } from 'google-translate-api-x';
 
@@ -25,8 +25,13 @@ export class CheckNewsUseCase {
 
         if (!exists) {
 
-            let content = `📢 **Nueva Noticia de Tibia**\n\n**${item.news}**\n${item.category} - ${item.date}\n${item.url}`;
-            
+            let embed = new EmbedBuilder()
+              .setTitle(`📢 Nueva Noticia de Tibia: ${item.news}`)
+              .setColor(0xFFAA00) // Color ámbar/naranja para noticias
+              .setURL(item.url)
+              .setTimestamp(new Date(item.date))
+              .setFooter({ text: 'WarSnakes Bot' });
+
             try {
               const detailedNews = await this.newsRepository.getNews(item.id);
               if (detailedNews && detailedNews.content) {
@@ -46,14 +51,25 @@ export class CheckNewsUseCase {
                  }
                  // ------------------
 
-                 if (cleanContent.length > 1500) {
-                    cleanContent = cleanContent.substring(0, 1500) + '...';
+                 if (cleanContent.length > 3000) {
+                    cleanContent = cleanContent.substring(0, 3000) + '...';
                  }
 
-                 content = `📢 **Nueva Noticia de Tibia**\n\n**${title}**\n*${detailedNews.category} - ${detailedNews.date}*\n\n${cleanContent}\n\n🔗 ${detailedNews.url || item.url}`;
+                 embed.setTitle(`📢 ${title}`);
+                 embed.setDescription(cleanContent);
+                 embed.addFields(
+                    { name: 'Categoría', value: detailedNews.category, inline: true },
+                    { name: 'Fecha', value: detailedNews.date, inline: true }
+                 );
+                 embed.setURL(detailedNews.url || item.url);
+              } else {
+                 // Fallback si no hay detalle
+                 embed.setDescription(`${item.category} - ${item.date}`);
               }
             } catch (err) {
               console.error(`[CheckNewsUseCase] Error obteniendo detalle de noticia ${item.id}, usando basica.`, err);
+              // Fallback en error
+              embed.setDescription(`${item.category} - ${item.date}`);
             }
 
             const guilds = await prisma.guildConfig.findMany({
@@ -65,7 +81,7 @@ export class CheckNewsUseCase {
               try {
                   const channel = await this.client.channels.fetch(guild.newsChannelId) as TextChannel;
                   if (channel) {
-                    await channel.send({ content });
+                    await channel.send({ embeds: [embed] });
                   }
               } catch (err) {
                   console.error(`[CheckNewsUseCase] Error enviando noticia a guild ${guild.id}:`, err);
