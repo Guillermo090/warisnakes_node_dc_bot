@@ -48,6 +48,6 @@ export class SchedulerService {
     // this.checkHousesUseCase.execute();
     // this.checkNewsUseCase.execute();
     // this.checkDailyStatsUseCase.execute();
-    this.checkTrackedCharactersUseCase.execute();
+    // this.checkTrackedCharactersUseCase.execute();
   }
 }
