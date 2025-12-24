@@ -7,6 +7,16 @@ export interface NewsItem {
   url: string;
 }
 
+export interface NewsDetail {
+  id: number;
+  title: string;
+  content: string;
+  date: string;
+  category: string;
+  type: string;
+  url: string;
+}
+
 export interface HouseAuction {
   current_bid: number;
   time_left: string;

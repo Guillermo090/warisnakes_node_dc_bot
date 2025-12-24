@@ -15,6 +15,20 @@ export class TibiaDataService {
   }
 
   /**
+   * Obtiene el detalle de una noticia específica por ID.
+   */
+  static async getNews(id: number): Promise<any> {
+    try {
+      const url = `${this.BASE_URL}/news/id/${id}`;
+      const response = await fetch(url);
+      return await response.json();
+    } catch (error) {
+      console.error(`[TibiaDataService] Error obteniendo detalle de noticia ${id}:`, error);
+      return null;
+    }
+  }
+
+  /**
    * Obtiene la información de las casas para un mundo y ciudad específicos.
    */
   static async getHouses(world: string, town: string): Promise<any> {

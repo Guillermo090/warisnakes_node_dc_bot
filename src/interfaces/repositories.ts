@@ -2,6 +2,7 @@ import { NewsItem, HouseItem, CharacterData } from './models';
 
 export interface INewsRepository {
   getLatestNews(): Promise<NewsItem[] | null>;
+  getNews(id: number): Promise<import('./models').NewsDetail | null>;
 }
 
 export interface IHouseRepository {

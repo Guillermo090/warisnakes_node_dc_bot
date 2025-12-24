@@ -2,7 +2,7 @@ import { BotClient } from '../structures/BotClient';
 import { PrismaClient } from '@prisma/client';
 import { TextChannel } from 'discord.js';
 import { INewsRepository } from '../interfaces/repositories';
-import { NewsItem } from '../interfaces/models';
+import { translate } from 'google-translate-api-x';
 
 const prisma = new PrismaClient();
 
@@ -24,6 +24,38 @@ export class CheckNewsUseCase {
         });
 
         if (!exists) {
+
+            let content = `📢 **Nueva Noticia de Tibia**\n\n**${item.news}**\n${item.category} - ${item.date}\n${item.url}`;
+            
+            try {
+              const detailedNews = await this.newsRepository.getNews(item.id);
+              if (detailedNews && detailedNews.content) {
+                 let cleanContent = detailedNews.content.replace(/<[^>]*>?/gm, ''); // Remove HTML tags
+                 let title = detailedNews.title || item.news;
+
+                 // --- TRADUCCIÓN ---
+                 try {
+                    const resTitle = await translate(title, { to: 'es' });
+                    const resContent = await translate(cleanContent, { to: 'es' });
+                    
+                    if (resTitle?.text) title = resTitle.text;
+                    if (resContent?.text) cleanContent = resContent.text;
+                 } catch (transErr) {
+                    console.error('[CheckNewsUseCase] Error traduciendo noticia:', transErr);
+                    // Continuamos con el texto original si falla
+                 }
+                 // ------------------
+
+                 if (cleanContent.length > 1500) {
+                    cleanContent = cleanContent.substring(0, 1500) + '...';
+                 }
+
+                 content = `📢 **Nueva Noticia de Tibia**\n\n**${title}**\n*${detailedNews.category} - ${detailedNews.date}*\n\n${cleanContent}\n\n🔗 ${detailedNews.url || item.url}`;
+              }
+            } catch (err) {
+              console.error(`[CheckNewsUseCase] Error obteniendo detalle de noticia ${item.id}, usando basica.`, err);
+            }
+
             const guilds = await prisma.guildConfig.findMany({
               where: { newsChannelId: { not: null } }
             });
@@ -33,9 +65,7 @@ export class CheckNewsUseCase {
               try {
                   const channel = await this.client.channels.fetch(guild.newsChannelId) as TextChannel;
                   if (channel) {
-                    await channel.send({
-                        content: `📢 **Nueva Noticia de Tibia**\n\n**${item.news}**\n${item.category} - ${item.date}\n${item.url}`
-                    });
+                    await channel.send({ content });
                   }
               } catch (err) {
                   console.error(`[CheckNewsUseCase] Error enviando noticia a guild ${guild.id}:`, err);

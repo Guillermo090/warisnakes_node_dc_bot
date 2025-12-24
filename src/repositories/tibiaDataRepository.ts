@@ -1,5 +1,5 @@
 import { INewsRepository, IHouseRepository, ICharacterRepository } from '../interfaces/repositories';
-import { NewsItem, HouseItem, CharacterData } from '../interfaces/models';
+import { NewsItem, HouseItem, CharacterData, NewsDetail } from '../interfaces/models';
 import { TibiaDataService } from '../services/tibiaDataService';
 
 export class TibiaDataRepository implements INewsRepository, IHouseRepository, ICharacterRepository {
@@ -8,6 +8,20 @@ export class TibiaDataRepository implements INewsRepository, IHouseRepository, I
     const data = await TibiaDataService.getLatestNews();
     if (!data || !data.news) return null;
     return data.news;
+  }
+
+  async getNews(id: number): Promise<NewsDetail | null> {
+    const data = await TibiaDataService.getNews(id);
+    if (!data || !data.news) return null;
+    return {
+        id: data.news.id,
+        title: data.news.news || data.news.title, // 'news' seems to be the title in list, check if same in detail
+        content: data.news.content,
+        date: data.news.date,
+        category: data.news.category,
+        type: data.news.type,
+        url: data.news.url
+    } as NewsDetail;
   }
 
   async getHouses(world: string, town: string): Promise<HouseItem[] | null> {

@@ -46,7 +46,7 @@ export class SchedulerService {
 
     console.log('[SchedulerService] Ejecutando chequeo inicial...');
     // this.checkHousesUseCase.execute();
-    // this.checkNewsUseCase.execute();
+    this.checkNewsUseCase.execute();
     // this.checkDailyStatsUseCase.execute();
     // this.checkTrackedCharactersUseCase.execute();
   }
