@@ -1,4 +1,6 @@
 import puppeteer from 'puppeteer';
+import * as path from 'path';
+import * as fs from 'fs';
 
 export class ScrapingService {
 
@@ -24,6 +26,19 @@ export class ScrapingService {
       
       // Navigate to initial page
       await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+
+      // -- HANDLE COOKIE CONSENT --
+      try {
+        const cookieButtonSelector = '.cmpbox-btn.cmpbox-btn-green'; // Common selector for Tibia cookie consent
+        if (await page.$(cookieButtonSelector)) {
+          console.log('Cookie consent found. Accepting...');
+          await page.click(cookieButtonSelector);
+          // Wait a bit for the overlay to disappear
+          await new Promise(r => setTimeout(r, 2000));
+        }
+      } catch (cookieErr) {
+        console.warn('Error handling cookie consent (ignoring):', cookieErr);
+      }
 
       // -- FORM SELECTION START --
       // Wait for World selector
@@ -160,6 +175,27 @@ export class ScrapingService {
 
     } catch (error) {
       console.error('Error in ScrapingService.getHighscores:', error);
+      
+      if (browser) {
+        try {
+            const debugDir = path.resolve(__dirname, '../../debug');
+            if (!fs.existsSync(debugDir)) {
+                fs.mkdirSync(debugDir, { recursive: true });
+            }
+            const pages = await browser.pages();
+            const page = pages.length > 0 ? pages[0] : null;
+            if (page) {
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                await page.screenshot({ path: path.join(debugDir, `error_screenshot_${timestamp}.png`), fullPage: true });
+                const html = await page.content();
+                fs.writeFileSync(path.join(debugDir, `error_page_${timestamp}.html`), html);
+                console.log(`Saved debug screenshot and HTML to ${debugDir}`);
+            }
+        } catch (debugError) {
+            console.error('Failed to save debug info:', debugError);
+        }
+      }
+
     } finally {
       if (browser) {
         await browser.close();
