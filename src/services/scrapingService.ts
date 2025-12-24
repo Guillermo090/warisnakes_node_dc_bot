@@ -41,7 +41,7 @@ export class ScrapingService {
 
       if (professionValue) {
         await page.evaluate((val) => {
-             const select = document.querySelector('select[name="profession"]') || document.querySelector('select[name="vocation"]') as HTMLSelectElement;
+             const select = (document.querySelector('select[name="profession"]') || document.querySelector('select[name="vocation"]')) as HTMLSelectElement;
              if(select) select.value = val;
         }, professionValue);
       } else {
@@ -60,12 +60,11 @@ export class ScrapingService {
 
       if (categoryValue) {
         await page.evaluate((val) => {
-             const select = document.querySelector('select[name="category"]') || document.querySelector('select[name="list"]') as HTMLSelectElement;
+             const select = (document.querySelector('select[name="category"]') || document.querySelector('select[name="list"]')) as HTMLSelectElement;
              if(select) select.value = val;
         }, categoryValue);
       } else {
         console.error(`Could not find category value for: ${category}`);
-        await browser.close();
         return;
       }
 
