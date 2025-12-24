@@ -5,6 +5,7 @@ import { CheckNewsUseCase } from '../useCases/checkNewsUseCase';
 import { CheckDailyStatsUseCase } from '../useCases/checkDailyStatsUseCase';
 import { CheckTrackedCharactersUseCase } from '../useCases/checkTrackedCharactersUseCase';
 import { TibiaDataRepository } from '../repositories/tibiaDataRepository';
+import { ScrapingService } from './scrapingService';
 
 export class SchedulerService {
   private client: BotClient;
@@ -49,5 +50,6 @@ export class SchedulerService {
     this.checkNewsUseCase.execute();
     // this.checkDailyStatsUseCase.execute();
     // this.checkTrackedCharactersUseCase.execute();
+    ScrapingService.getHighscores('Collabra', 'Experience Points','Paladins', 20);
   }
 }

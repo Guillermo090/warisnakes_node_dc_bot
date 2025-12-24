@@ -1,43 +1,165 @@
-// import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer';
 
 export class ScrapingService {
 
-  // static async getDromeTime(): Promise<string> {
-  //   const url = 'https://tibia.fandom.com/wiki/Tibiadrome/Rotation';
-  //   const xpath = '/html/body/div[4]/div[4]/div[2]/main/div[3]/div/div/center/table/tbody/tr[3]/td/b';
-  //   let browser;
+  static async getHighscores(world: string, category: string, profession: string, totalPages: number = 1): Promise<void> {
+    const url = 'https://www.tibia.com/community/?subtopic=highscores';
+    let browser;
 
-  //   try {
-  //     browser = await puppeteer.launch({
-  //       headless: true,
-  //       executablePath: '/usr/bin/chromium-browser',
-  //       args: [
-  //         '--no-sandbox',
-  //         '--disable-setuid-sandbox',
-  //         '--disable-dev-shm-usage',
-  //         '--disable-gpu',
-  //         '--single-process'
-  //       ]
-  //     });
-  //     const page = await browser.newPage();
-  //     // Aumentamos el timeout a 60 segundos
-  //     await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+    try {
+      console.log(`Starting scrape for World: ${world}, Category: ${category}, Profession: ${profession}, Pages: ${totalPages}`);
+      browser = await puppeteer.launch({
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+        ]
+      });
+      const page = await browser.newPage();
+      
+      // Navigate to initial page
+      await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
 
-  //     const element = await page.waitForSelector(`xpath/${xpath}`);
-  //     let text = 'No encontrado';
-  //     if (element) {
-  //       text = await page.evaluate(el => el?.textContent ?? 'No encontrado', element);
-  //     }
+      // -- FORM SELECTION START --
+      // Wait for World selector
+      await page.waitForSelector('select[name="world"]', { timeout: 10000 });
+      await page.select('select[name="world"]', world);
 
-  //     await browser.close();
-  //     return text;
-  //   } catch (error) {
-  //     console.error('Error al obtener el tiempo del Drome:', error);
-  //     // Asegurarse de que el navegador se cierre si hay un error
-  //     if (browser) {
-  //       await browser.close();
-  //     }
-  //     return 'No encontrado';
-  //   }
-  // }
+      // Select Profession (Vocations)
+      const professionValue = await page.evaluate((profText) => {
+        const select = document.querySelector('select[name="profession"]') || document.querySelector('select[name="vocation"]'); 
+        if (!select) return null;
+        
+        const options = Array.from(select.querySelectorAll('option'));
+        const option = options.find(opt => {
+            const text = opt.textContent?.trim().toLowerCase() || '';
+            const search = profText.toLowerCase();
+            return text === search || text.includes(search);
+        });
+        return option ? option.value : null;
+      }, profession);
+
+      if (professionValue) {
+        await page.evaluate((val) => {
+             const select = document.querySelector('select[name="profession"]') || document.querySelector('select[name="vocation"]') as HTMLSelectElement;
+             if(select) select.value = val;
+        }, professionValue);
+      } else {
+         console.warn(`Profession "${profession}" not found. Proceeding with default/current.`);
+      }
+
+      // Select Category
+      const categoryValue = await page.evaluate((catText) => {
+        const select = document.querySelector('select[name="category"]') || document.querySelector('select[name="list"]'); 
+        if (!select) return null;
+        
+        const options = Array.from(select.querySelectorAll('option'));
+        const option = options.find(opt => opt.textContent?.trim() === catText);
+        return option ? option.value : null;
+      }, category);
+
+      if (categoryValue) {
+        await page.evaluate((val) => {
+             const select = document.querySelector('select[name="category"]') || document.querySelector('select[name="list"]') as HTMLSelectElement;
+             if(select) select.value = val;
+        }, categoryValue);
+      } else {
+        console.error(`Could not find category value for: ${category}`);
+        await browser.close();
+        return;
+      }
+
+      // Submit form
+      await Promise.all([
+        page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 }),
+        page.evaluate(() => {
+             const forms = document.querySelectorAll('form');
+             for(const form of Array.from(forms)) {
+                 if(form.querySelector('select[name="world"]')) {
+                     form.submit();
+                     return;
+                 }
+             }
+        })
+      ]);
+      // -- FORM SELECTION END --
+
+      // -- PAGINATION LOOP --
+      for (let currentPage = 1; currentPage <= totalPages; currentPage++) {
+        console.log(`--- Processing Page ${currentPage} ---`);
+        
+        // Parse Results
+        await page.waitForSelector('.TableContent', { timeout: 10000 });
+
+        const chars = await page.evaluate(() => {
+            const rows = Array.from(document.querySelectorAll('.TableContent tr'));
+            const data: { rank: string, name: string, points: string }[] = [];
+            
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                if (cells.length >= 3) {
+                    const rank = cells[0].textContent?.trim() || '';
+                    const name = cells[1].textContent?.trim() || '';
+                    const points = cells[cells.length - 1].textContent?.trim() || '';
+
+                    if (/^\d+\.?$/.test(rank) && name) {
+                        data.push({ rank, name, points });
+                    }
+                }
+            });
+            return data;
+        });
+
+        // Output Results
+        chars.forEach(c => {
+            console.log(`[Page ${currentPage}] Ranking: ${c.rank}, Nombre: ${c.name}, Points: ${c.points}`);
+        });
+
+        // Next Page Logic
+        if (currentPage < totalPages) {
+            console.log(`Attempting to navigate to page ${currentPage + 1}...`);
+            const nextPageNum = currentPage + 1;
+            
+            // Try Strategy 1: "Next" text
+            // Try Strategy 2: "2", "3" text
+            const navigated = await page.evaluate((pageNum) => {
+                const allLinks = Array.from(document.querySelectorAll('a'));
+                
+                // Strategy 1: Exact page number (highest confidence if unique)
+                // BUT Tibia pagination might repeat numbers? Unlikely for pages.
+                
+                // Match "Next"
+                const nextLink = allLinks.find(a => a.textContent?.includes('Next') || a.textContent?.includes('>>'));
+                if (nextLink) {
+                    nextLink.click();
+                    return true;
+                }
+
+                // Match Page Number
+                const pageLink = allLinks.find(a => a.textContent?.trim() === String(pageNum));
+                if (pageLink) {
+                    pageLink.click();
+                    return true;
+                }
+                
+                return false;
+            }, nextPageNum);
+
+            if (navigated) {
+                 await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 });
+            } else {
+                 console.log(`Could not find link for Next page or Page ${nextPageNum}. Checking page content for debugging.`);
+                 break;
+            }
+        }
+      }
+
+    } catch (error) {
+      console.error('Error in ScrapingService.getHighscores:', error);
+    } finally {
+      if (browser) {
+        await browser.close();
+      }
+    }
+  }
 }
