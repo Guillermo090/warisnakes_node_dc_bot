@@ -13,16 +13,21 @@ export class ScrapingService {
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-gpu',
+          '--window-size=1920,1080',
         ]
       });
       const page = await browser.newPage();
+      
+      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
       
       // Navigate to initial page
       await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
 
       // -- FORM SELECTION START --
       // Wait for World selector
-      await page.waitForSelector('select[name="world"]', { timeout: 10000 });
+      await page.waitForSelector('select[name="world"]', { timeout: 60000 });
       await page.select('select[name="world"]', world);
 
       // Select Profession (Vocations)
@@ -88,7 +93,7 @@ export class ScrapingService {
         console.log(`--- Processing Page ${currentPage} ---`);
         
         // Parse Results
-        await page.waitForSelector('.TableContent', { timeout: 10000 });
+        await page.waitForSelector('.TableContent', { timeout: 60000 });
 
         const chars = await page.evaluate(() => {
             const rows = Array.from(document.querySelectorAll('.TableContent tr'));

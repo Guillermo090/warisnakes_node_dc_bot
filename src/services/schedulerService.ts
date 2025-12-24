@@ -50,6 +50,6 @@ export class SchedulerService {
     this.checkNewsUseCase.execute();
     // this.checkDailyStatsUseCase.execute();
     // this.checkTrackedCharactersUseCase.execute();
-    ScrapingService.getHighscores('Collabra', 'Experience Points','Paladins', 20);
+    ScrapingService.getHighscores('Collabra', 'Experience Points','All', 2);
   }
 }
