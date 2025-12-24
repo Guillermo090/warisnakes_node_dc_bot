@@ -1,6 +1,9 @@
-import puppeteer from 'puppeteer';
+import puppeteer from 'puppeteer-extra';
+import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import * as path from 'path';
 import * as fs from 'fs';
+
+puppeteer.use(StealthPlugin());
 
 export class ScrapingService {
 
