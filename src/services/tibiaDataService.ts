@@ -36,8 +36,8 @@ export class TibiaDataService {
       const url = `${this.BASE_URL}/character/${encodeURIComponent(name)}`;
       const response = await fetch(url);
       return await response.json();
-    } catch (error) {
-      console.error(`[TibiaDataService] Error obteniendo personaje ${name}:`, error);
+    } catch (error: any) {
+      console.error(`[TibiaDataService] Error obteniendo personaje ${name}:`, error.message);
       return null;
     }
   }
