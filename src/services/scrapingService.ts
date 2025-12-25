@@ -27,8 +27,28 @@ export class ScrapingService {
       
       await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
       
+      
       // Navigate to initial page
-      await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+      // Add extra headers to look like a real browser
+      await page.setExtraHTTPHeaders({
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Referer': 'https://www.google.com/'
+      });
+
+      console.log('Navigating to URL...');
+      const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      console.log(`Navigation complete. Status: ${response?.status()} ${response?.statusText()}`);
+      console.log(`Page Title: ${await page.title()}`);
+
+      // -- IMMEDIATE DEBUG SNAPSHOT --
+      try {
+          const debugDir = path.resolve(__dirname, '../../debug');
+          if (!fs.existsSync(debugDir)) fs.mkdirSync(debugDir, { recursive: true });
+          const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+          await page.screenshot({ path: path.join(debugDir, `nav_immediate_${timestamp}.png`), fullPage: true });
+          fs.writeFileSync(path.join(debugDir, `nav_immediate_${timestamp}.html`), await page.content());
+          console.log('Saved immediate navigation snapshot.');
+      } catch (e) { console.warn('Failed to save immediate snapshot', e); }
 
       // -- HANDLE COOKIE CONSENT --
       try {
