@@ -5,7 +5,7 @@ import { CheckNewsUseCase } from '../useCases/checkNewsUseCase';
 import { CheckDailyStatsUseCase } from '../useCases/checkDailyStatsUseCase';
 import { CheckTrackedCharactersUseCase } from '../useCases/checkTrackedCharactersUseCase';
 import { TibiaDataRepository } from '../repositories/tibiaDataRepository';
-import { ScrapingService } from './scrapingService';
+import { TibiaDataService } from './tibiaDataService';
 
 export class SchedulerService {
   private client: BotClient;
@@ -26,11 +26,11 @@ export class SchedulerService {
     this.checkTrackedCharactersUseCase = new CheckTrackedCharactersUseCase(client, tibiaDataRepository);
   }
 
-  public init() {
+  public async init() {
     console.log('[SchedulerService] Iniciando servicios programados...');
     
-    // Check news every 30 minutes
-    cron.schedule('*/30 * * * *', () => {
+    // Check news every hour
+    cron.schedule('0 * * * *', () => {
       this.checkNewsUseCase.execute();
     });
 
@@ -40,16 +40,17 @@ export class SchedulerService {
       this.checkDailyStatsUseCase.execute();
     });
 
-    // Check tracked characters every 15 minutes
-    cron.schedule('*/15 * * * *', () => {
+    // Check tracked characters every 30 minutes
+    cron.schedule('*/30 * * * *', () => {
       this.checkTrackedCharactersUseCase.execute();
     });
 
     console.log('[SchedulerService] Ejecutando chequeo inicial...');
     // this.checkHousesUseCase.execute();
-    this.checkNewsUseCase.execute();
+    // this.checkNewsUseCase.execute();
     // this.checkDailyStatsUseCase.execute();
     // this.checkTrackedCharactersUseCase.execute();
-    ScrapingService.getHighscores('Collabra', 'Experience Points','All', 2);
+    // const allHighscores = await TibiaDataService.getHighscores('Collabra', 'Experience Points','All', 2);
+    // console.log(allHighscores);
   }
 }
