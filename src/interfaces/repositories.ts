@@ -11,4 +11,5 @@ export interface IHouseRepository {
 
 export interface ICharacterRepository {
   getCharacter(name: string): Promise<CharacterData | null>;
+  getHighscores(world: string, category: string, profession: string, totalPages?: number): Promise<import('./models').HighscoreItem[]>;
 }

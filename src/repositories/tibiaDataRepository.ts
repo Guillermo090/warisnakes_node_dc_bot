@@ -56,4 +56,19 @@ export class TibiaDataRepository implements INewsRepository, IHouseRepository, I
       other_characters: others
     };
   }
+
+  async getHighscores(world: string, category: string, profession: string, totalPages: number = 1): Promise<import('../interfaces/models').HighscoreItem[]> {
+      const data = await TibiaDataService.getHighscores(world, category, profession, totalPages);
+      // Data is already an array of highscore items from service, map to interface if needed
+      // Service returns any[], we should map it safely
+      return data.map((item: any) => ({
+          rank: item.rank,
+          name: item.name,
+          vocation: item.vocation,
+          world: item.world,
+          level: item.level,
+          value: item.value, // Experience
+          deleted: item.deleted || false
+      }));
+  }
 }

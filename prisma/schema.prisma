@@ -68,4 +68,14 @@ model TrackedCharacter {
   lastDeath String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  snapshots CharacterSnapshot[]
+}
+
+model CharacterSnapshot {
+  id                 Int              @id @default(autoincrement())
+  trackedCharacterId Int
+  date               DateTime         @default(now())
+  experience         BigInt           
+  level              Int
+  trackedCharacter   TrackedCharacter @relation(fields: [trackedCharacterId], references: [id], onDelete: Cascade)
 }

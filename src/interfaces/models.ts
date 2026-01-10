@@ -48,6 +48,7 @@ export interface CharacterInfo {
   vocation?: string;
   world?: string;
   status?: string; // "online" | "offline"
+  experience?: number;
 }
 
 export interface OtherCharacter {
@@ -62,4 +63,14 @@ export interface CharacterData {
   character: CharacterInfo;
   deaths: CharacterDeath[];
   other_characters?: OtherCharacter[];
+}
+
+export interface HighscoreItem {
+  rank: number;
+  name: string;
+  vocation: string;
+  world: string;
+  level: number;
+  value: number; // Experience points
+  deleted: boolean;
 }
